@@ -99,8 +99,8 @@ export default function Home() {
             />
             <AlertMessage message={message ?? 'No message provided'} />
           </div>
-          <button 
-            onClick={handleClearVideo} 
+          <button
+            onClick={handleClearVideo}
             className="px-6 py-3 text-base font-semibold text-white bg-gradient-to-br from-[#ff4444] to-[#ff6666] rounded-lg cursor-pointer transition-all duration-300 shadow-[0_4px_15px_rgba(255,68,68,0.3)] hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(255,68,68,0.4)] active:translate-y-0"
           >
             Clear Video
