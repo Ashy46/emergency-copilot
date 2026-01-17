@@ -54,6 +54,8 @@ IMPORTANT:
 export function useOvershootVision() {
   const [message, setMessage] = useState<string | null>(null)
   const [vision, setVision] = useState<RealtimeVision | null>(null)
+  const [events, setEvents] = useState<Event[]>([])
+  const [masterEvent, setMasterEvent] = useState<Event | null>(null)
   const { location } = useLocation()
   
   const startVision = useCallback((videoFile: File) => {
@@ -87,7 +89,12 @@ export function useOvershootVision() {
             data: parsedData.data,
             bystanderReport: parsedData.bystanderReport || 'Failed to parse result (Non error)'
           }
-          
+          setEvents([...events, event])
+
+          if (events.length >= 5) {
+            // Call the agent to analyze the events
+            setMasterEvent(event)
+          }
           console.log('Parsed event:', event)
           setMessage(event.bystanderReport)
         } catch (error) {
