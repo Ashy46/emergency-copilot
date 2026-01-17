@@ -66,13 +66,15 @@ export function useOvershootVision() {
       apiKey: apiKey,
       prompt: prompt,
       source: { type: 'video', file: videoFile },
+      processing: {
+        clip_length_seconds: 2,
+        delay_seconds: 2
+      },
       onResult: (result) => {
-        console.log('Vision result:', result)
         try {
           // Parse the JSON response from the vision API
           const parsedData = JSON.parse(result.result)
 
-          console.log('Parsed data:', parsedData)
           
           // Construct the full Event object
           const event: Event = {
