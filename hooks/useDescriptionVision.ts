@@ -1,23 +1,23 @@
 import { useOvershootVision } from "./useOvershootVision";
 
-const DESCRIPTION_VISION_PROMPT = `You are a description vision agent. Analyze the scene and provide a structured description.
+const DESCRIPTION_VISION_PROMPT = `Analyze the scene and return ONLY valid JSON. No markdown, no extra text.
 
-Return ONLY a valid JSON object with NO markdown formatting, NO backticks, NO additional text:
-
+Example format:
 {
-  "scenario": "carAccident" | "fire" | "medical" | "unknown",
+  "scenario": "carAccident",
   "data": {
-    "description": "clear description of what is happening",
-    "additional_fields": "any other relevant data as nested JSON"
+    "description": "what you see in the scene"
   }
 }
 
-CRITICAL RULES:
+Rules:
+- "scenario" must be one of: "carAccident", "fire", "medical", "unknown"
+- "data" must have a "description" field (string)
+- Add any other relevant fields to "data" as needed
 - Return ONLY the JSON object
-- NO markdown code blocks (no \`\`\`json or \`\`\`)
-- NO text before or after the JSON
-- Use double quotes for all strings
-- Ensure all JSON is properly escaped`;
+- NO markdown code blocks
+- NO backticks
+- Use proper JSON syntax with commas between fields`;
 
 export function useDescriptionVision() {
   const { vision, startVision, clearVision } = useOvershootVision({
@@ -34,6 +34,11 @@ export function useDescriptionVision() {
           
           // Remove markdown code blocks (```json ... ``` or ``` ... ```)
           cleanResult = cleanResult.replace(/^```(?:json)?\s*/g, '').replace(/\s*```$/g, '');
+          
+          // Fix malformed JSON where description has a colon followed by additional_fields
+          // Pattern: "description":"text":"additional_fields"
+          // Should be: "description":"text","additional_fields"
+          cleanResult = cleanResult.replace(/"description":"([^"]*(?:\\.[^"]*)*)":"additional_fields"/g, '"description":"$1","additional_fields"');
           
           // Remove any leading/trailing whitespace or newlines
           cleanResult = cleanResult.trim();

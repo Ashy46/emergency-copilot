@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useDescriptionVision } from '@/hooks/useDescriptionVision'
 import { LiveKitRoom, useLocalParticipant } from '@livekit/components-react'
-import { LocalVideoTrack } from 'livekit-client'
+import { LocalVideoTrack, Track } from 'livekit-client'
 
 export default function TestPage() {
   const [videoFile, setVideoFile] = useState<File | null>(null)
@@ -220,87 +220,80 @@ function RoomContent({
 }) {
   const { localParticipant } = useLocalParticipant()
   const [localTrack, setLocalTrack] = useState<LocalVideoTrack | null>(null)
-  const animationFrameRef = useRef<number | null>(null)
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
   useEffect(() => {
     let currentTrack: LocalVideoTrack | null = null
+    let isActive = true
 
     const publishVideoStream = async () => {
       const video = videoRef.current
-      if (!video || !localParticipant) {
+      if (!video || !localParticipant || !isActive) {
         console.error('Video element or participant not ready')
         return
       }
 
       try {
-        // Create a canvas to capture the video
-        const canvas = document.createElement('canvas')
-        canvasRef.current = canvas
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          console.error('Could not get canvas context')
-          return
-        }
-
-        // Wait for video metadata to load
-        await new Promise<void>((resolve) => {
-          if (video.readyState >= 2) {
-            resolve()
-          } else {
+        // Wait for video metadata to load first
+        if (video.readyState < 2) {
+          console.log('Waiting for video metadata...')
+          await new Promise<void>((resolve) => {
             video.addEventListener('loadedmetadata', () => resolve(), { once: true })
-          }
-        })
-
-        // Set canvas size to match video
-        canvas.width = video.videoWidth || 640
-        canvas.height = video.videoHeight || 480
-
-        console.log('Canvas size:', canvas.width, 'x', canvas.height)
-
-        // Get stream from canvas
-        const canvasStream = canvas.captureStream(30) // 30 FPS
-        const videoTrack = canvasStream.getVideoTracks()[0]
-
-        if (!videoTrack) {
-          console.error('Could not get video track from canvas')
-          return
+          })
         }
 
-        // Continuously draw video to canvas
-        const drawFrame = () => {
-          if (video.paused || video.ended) {
-            console.log('Video stopped, pausing canvas render')
-            return
-          }
+        if (!isActive) return
 
-          if (ctx && canvasRef.current) {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-            animationFrameRef.current = requestAnimationFrame(drawFrame)
-          }
-        }
+        console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight)
 
         // Start video playback
         try {
+          video.muted = true
+          video.loop = true
           await video.play()
           console.log('Video playing')
         } catch (playError) {
           console.error('Video autoplay failed:', playError)
-          // Don't alert, just log - user can click play manually
+          alert('Video autoplay failed. Please click the video to start it.')
+          return
         }
 
-        drawFrame()
+        if (!isActive) return
 
-        // Create LiveKit track from the canvas stream
+        // Wait a moment for video to be ready
+        await new Promise(resolve => setTimeout(resolve, 200))
+
+        if (!isActive) return
+
+        // Capture stream directly from video element
+        // @ts-ignore - captureStream exists but not in all TS types
+        const videoStream = video.captureStream() as MediaStream
+        const videoTrack = videoStream.getVideoTracks()[0]
+
+        if (!videoTrack) {
+          console.error('Could not get video track from video element')
+          return
+        }
+
+        console.log('Video track obtained:', videoTrack.getSettings())
+
+        // Create LiveKit track from the video stream
         const track = new LocalVideoTrack(videoTrack)
         currentTrack = track
 
-        await localParticipant.publishTrack(track)
-        setLocalTrack(track)
+        console.log('Publishing track to room...')
+        await localParticipant.publishTrack(track, {
+          name: 'video-file-stream',
+          source: Track.Source.Camera, // Use Camera source to ensure it's accepted
+          simulcast: false
+        })
 
-        console.log('✓ Published video file stream to room')
+        if (isActive) {
+          setLocalTrack(track)
+          console.log('✓ Published video file stream to room')
+        }
       } catch (error) {
         console.error('Failed to publish video stream:', error)
+        alert(`Failed to publish video stream: ${error}`)
       }
     }
 
@@ -309,21 +302,13 @@ function RoomContent({
     // Cleanup
     return () => {
       console.log('Cleaning up video stream')
-
-      // Cancel animation frame
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-        animationFrameRef.current = null
-      }
+      isActive = false
 
       // Unpublish and stop track
       if (currentTrack && localParticipant) {
         localParticipant.unpublishTrack(currentTrack).catch(console.error)
         currentTrack.stop()
       }
-
-      // Clean up canvas
-      canvasRef.current = null
     }
   }, [videoUrl, localParticipant, videoRef])
 
