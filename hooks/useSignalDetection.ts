@@ -4,27 +4,49 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { RealtimeVision } from '@overshoot/sdk'
 import { SignalDetectionConfig, SignalResult } from '@/types/signal'
 
-const ANOMALY_DETECTION_PROMPT = `You are monitoring a CCTV feed for anomalies. Analyze this frame and determine if there is any unusual or concerning activity that warrants attention.
+const ANOMALY_DETECTION_PROMPT = `You are monitoring a security feed for threats and dangerous situations. Analyze this frame and determine if there is any threatening or dangerous activity.
 
 Respond with ONLY a JSON object:
 
 {
-  "anomalyDetected": <boolean - true if unusual/concerning activity detected>,
-  "type": "<string - type of anomaly: 'violence', 'intrusion', 'accident', 'fire', 'medical', 'suspicious', 'none'>",
+  "anomalyDetected": <boolean - true if threat/danger detected>,
+  "type": "<string - type of threat: 'weapon', 'violence', 'intrusion', 'accident', 'fire', 'medical', 'suspicious', 'none'>",
   "confidence": <number 0-1 - how confident you are in this detection>
 }
 
-Detect anomalies such as:
-- Physical altercations or violence
-- Unauthorized access or intrusion
-- Accidents (falls, collisions, etc.)
-- Fire or smoke
-- Medical emergencies (person collapsed, etc.)
-- Suspicious behavior (loitering, casing, etc.)
+CRITICAL THREATS (ALWAYS flag with high confidence):
+- Weapons: Guns, knives, bats, or any objects being wielded as weapons
+- Weapon-like postures: People holding objects in threatening manner
+- Military/tactical gear: Body armor, tactical vests, military uniforms, helmets
+- Threatening body language: Combat stances, aggressive postures, pointing weapons
+- Physical violence: Fighting, attacking, hitting, kicking
+- Dangerous materials: Explosives, suspicious packages, chemical containers, fire
+- Armed intrusion: Forced entry, breaking windows/doors while armed
+- Active shooter indicators: Person with firearm in public space, aiming at people
 
-For normal activity (people walking, standing, talking normally), return anomalyDetected: false.
+MODERATE THREATS (flag if confidence > 0.6):
+- Suspicious behavior: Loitering with bags, casing areas, covering face unnaturally
+- Crowd panic: People running, screaming, scattering in fear
+- Medical emergencies: Person collapsed, visible injury, distress signals
+- Fire/smoke: Any visible flames or smoke
+- Vehicle accidents: Collisions, vehicles in dangerous positions
+- Trespassing: Unauthorized access, climbing fences
 
-IMPORTANT: Be conservative - only flag true anomalies to avoid false positives.`
+NORMAL ACTIVITY (DO NOT flag):
+- People walking, standing, talking calmly
+- Normal work attire or casual clothing
+- Regular business activities
+- Children playing
+- Normal traffic flow
+- Construction workers with tools (unless threatening behavior)
+- Security guards in uniform doing rounds
+
+IMPORTANT: 
+- Be HIGHLY sensitive to weapons and military gear
+- Combat stances and aggressive postures are RED FLAGS
+- If someone looks like they're holding a gun-like object, FLAG IT
+- Tactical gear + weapon-like object = IMMEDIATE FLAG
+- Better to flag a potential threat than miss a real one`
 
 interface AnomalyResponse {
   anomalyDetected: boolean

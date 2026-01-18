@@ -133,10 +133,13 @@ export default function Home() {
     }
   }
 
-  const handleVideoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
       if (file.type.startsWith('video/')) {
+        // Add 300ms delay for smooth UX
+        await new Promise(resolve => setTimeout(resolve, 300))
+        
         setVideoFile(file)
         const url = URL.createObjectURL(file)
         setVideoUrl(url)
