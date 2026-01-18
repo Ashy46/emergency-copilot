@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect } from 'react'
 import { RealtimeVision } from '@overshoot/sdk'
 import { v4 as uuidv4 } from 'uuid'
 
-import { Event } from '@/types/event'
 import { useLocation } from './useLocation'
 
 const prompt = `Analyze this emergency scene and respond with a complete JSON object matching this EXACT structure:

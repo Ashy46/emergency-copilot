@@ -1,11 +1,11 @@
-export type EventScenario = "carAccident" | "fire" | "medical" | "unknown";
+export type SnapshotScenario = "carAccident" | "fire" | "medical" | "unknown";
 
-export interface Event {
+export interface Snapshot {
   id: string;
   videoId: string;
   timestamp: number;
   lat: number;
   lng: number;
-  scenario: EventScenario;
+  scenario: SnapshotScenario;
   data: JSON;
 }
