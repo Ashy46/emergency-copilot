@@ -64,6 +64,7 @@ export function useSignalDetection(config?: SignalDetectionConfig) {
   const signalCountRef = useRef<number>(0)
   const thresholdReachedRef = useRef<boolean>(false)
   const currentVideoFileRef = useRef<File | null>(null)
+  const visionRef = useRef<RealtimeVision | null>(null) // Use ref for reliable cleanup
   
   const sensitivityThreshold = config?.sensitivityThreshold ?? 0.5
   const signalThreshold = config?.signalThreshold ?? 3
@@ -71,6 +72,14 @@ export function useSignalDetection(config?: SignalDetectionConfig) {
 
   const startDetection = useCallback((videoSource: File) => {
     console.log('Starting signal detection with video:', videoSource.name, videoSource.type, videoSource.size)
+
+    // Stop any existing vision instance first (using ref for reliable cleanup)
+    if (visionRef.current && typeof visionRef.current.stop === 'function') {
+      console.log('🛑 Stopping previous vision instance before starting new one')
+      visionRef.current.stop()
+      visionRef.current = null
+    }
+
     setIsDetecting(true)
     setShouldStream(false)
     setLastSignal(null)
@@ -185,17 +194,20 @@ export function useSignalDetection(config?: SignalDetectionConfig) {
     }
 
     setVision(newVision)
+    visionRef.current = newVision // Also store in ref for reliable cleanup
     return newVision
   }, [sensitivityThreshold, signalThreshold, onTransition])
 
   const stopDetection = useCallback(() => {
     console.log('Stopping signal detection...')
-    if (vision && typeof vision.stop === 'function') {
-      vision.stop()
+    // Use ref for reliable cleanup (avoids stale closure issues)
+    if (visionRef.current && typeof visionRef.current.stop === 'function') {
+      visionRef.current.stop()
+      visionRef.current = null
     }
     setVision(null)
     setIsDetecting(false)
-  }, [vision])
+  }, []) // No dependencies - uses ref
 
   const resetSignal = useCallback(() => {
     setShouldStream(false)
@@ -205,11 +217,12 @@ export function useSignalDetection(config?: SignalDetectionConfig) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (vision && typeof vision.stop === 'function') {
-        vision.stop()
+      if (visionRef.current && typeof visionRef.current.stop === 'function') {
+        visionRef.current.stop()
+        visionRef.current = null
       }
     }
-  }, [vision])
+  }, []) // No dependencies - uses ref
 
   return {
     shouldStream,

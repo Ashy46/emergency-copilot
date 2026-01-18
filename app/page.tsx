@@ -22,6 +22,7 @@ export default function Home() {
   const [token, setToken] = useState<string | null>(null)
   const [url, setUrl] = useState<string | null>(null)
   const hasTransitioned = useRef(false) // Prevent multiple transitions
+  const [transitionStatus, setTransitionStatus] = useState<string>('idle') // For debug display
 
   // Store WebSocket connection promise so onTransition can await it
   // Now just resolves when connection is ready (doesn't create incident yet)
@@ -95,17 +96,21 @@ export default function Home() {
     onTransition: async (videoFile) => {
       // This fires IMMEDIATELY when 3rd signal detected!
       console.log('🔥 TRANSITION CALLBACK FIRED with video:', videoFile.name)
+      setTransitionStatus('fired')
 
       if (hasTransitioned.current) {
         console.log('⚠️ Already transitioned, skipping')
+        setTransitionStatus('skipped-already')
         return
       }
 
       hasTransitioned.current = true
+      setTransitionStatus('starting')
 
       try {
         // 1. Wait for WebSocket connection to be ready (preempted on video upload)
         console.log('1. Waiting for WebSocket connection...')
+        setTransitionStatus('waiting-ws')
         if (!wsConnectionPromise.current) {
           throw new Error('WebSocket connection not started - upload a video first')
         }
@@ -114,26 +119,32 @@ export default function Home() {
 
         // 2. NOW create the incident/video (only after anomaly detected)
         console.log('2. Creating incident/video entry...')
+        setTransitionStatus('creating-incident')
         const activeVideoId = videoIdRef.current ?? videoId ?? uuidv4()
+        console.log('🆔 Using video ID for incident:', activeVideoId, '(ref:', videoIdRef.current, 'state:', videoId, ')')
         if (!videoIdRef.current) {
           videoIdRef.current = activeVideoId
           setVideoId(activeVideoId)
         }
         const activeFilename = filenameRef.current ?? filename ?? undefined
         const wsResult = await initializeWebSocket(activeVideoId, location.lat, location.lng, activeFilename)
-        console.log('✅ Incident created:', wsResult.incidentId, 'filename:', activeFilename)
+        console.log('✅ Incident created:', wsResult.incidentId, 'videoId:', activeVideoId, 'filename:', activeFilename)
 
         // 3. Start description vision - snapshots will be sent via WebSocket
         console.log('3. Starting description vision...')
+        setTransitionStatus('starting-vision')
         startVision(videoFile)
 
         // 4. Connect to LiveKit for video streaming
         console.log('4. Connecting to LiveKit...')
+        setTransitionStatus('connecting-livekit')
         await connectAndStream()
 
+        setTransitionStatus('complete')
         console.log('✅ Transition complete! Overshoot → WebSocket → API pipeline active.')
       } catch (error) {
         console.error('❌ Transition failed:', error)
+        setTransitionStatus(`error: ${error}`)
         hasTransitioned.current = false
       }
     }
@@ -209,11 +220,19 @@ export default function Home() {
   const connectAndStream = async () => {
     try {
       const activeVideoId = videoIdRef.current ?? videoId ?? uuidv4()
+      console.log('🎥 connectAndStream called with:', {
+        videoIdRef: videoIdRef.current,
+        videoIdState: videoId,
+        activeVideoId,
+      })
+
       if (!videoIdRef.current) {
         videoIdRef.current = activeVideoId
         setVideoId(activeVideoId)
       }
+
       // Use videoId as both room name and identity
+      console.log('🎥 Fetching LiveKit token for room:', activeVideoId)
       const response = await fetch('/api/livekit/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -225,13 +244,15 @@ export default function Home() {
       })
 
       const data = await response.json()
+      console.log('🎥 LiveKit token received:', { url: data.url, hasToken: !!data.token })
+
       setUrl(data.url)
       setToken(data.token)
       setIsStreaming(true)
 
-      console.log('✓ Connected to LiveKit room:', activeVideoId)
+      console.log('✅ LiveKit streaming started for room:', activeVideoId)
     } catch (err) {
-      console.error('Failed to connect to LiveKit:', err)
+      console.error('❌ Failed to connect to LiveKit:', err)
       alert('Failed to start streaming')
     }
   }
@@ -240,8 +261,26 @@ export default function Home() {
     const file = event.target.files?.[0]
     if (file) {
       if (file.type.startsWith('video/')) {
-        // Add 300ms delay for smooth UX
-        await new Promise(resolve => setTimeout(resolve, 300))
+        // Clean up any existing connection first (allows multiple uploads without clicking Reset)
+        console.log('🧹 Cleaning up previous session before new upload...')
+        stopDetection()
+        resetSignal()
+        clearVision()
+        disconnectWebSocket()
+        setIsStreaming(false)
+        setToken(null)
+        setUrl(null)
+        hasTransitioned.current = false
+        wsConnectionPromise.current = null
+        setTransitionStatus('idle')
+
+        // Revoke old video URL if exists
+        if (videoUrl) {
+          URL.revokeObjectURL(videoUrl)
+        }
+
+        // Wait for cleanup to fully complete before starting new session
+        await new Promise(resolve => setTimeout(resolve, 500))
 
         // Parse filename and set location coordinates
         const coords = getLocationFromFilename(file.name)
@@ -253,6 +292,7 @@ export default function Home() {
         filenameRef.current = file.name
 
         const newVideoId = uuidv4()
+        console.log('🆔 New video ID generated:', newVideoId)
         setVideoId(newVideoId)
         videoIdRef.current = newVideoId
         const url = URL.createObjectURL(file)
@@ -264,6 +304,11 @@ export default function Home() {
 
         // Start signal detection
         startDetection(file)
+
+        // Reset file input so the same file can be re-uploaded
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
       } else {
         alert('Please upload a valid video file')
       }
@@ -288,6 +333,7 @@ export default function Home() {
     filenameRef.current = null
     hasTransitioned.current = false
     wsConnectionPromise.current = null
+    setTransitionStatus('idle')
 
     // Reset location to default
     setLocation({ lat: 41.796483, lng: -87.606919 })
@@ -312,7 +358,11 @@ export default function Home() {
     },
     {
       label: 'LiveKit Stream',
-      state: isStreaming ? 'ok' : shouldStream ? 'warn' : 'idle',
+      state: isStreaming && token ? 'ok' : shouldStream ? 'warn' : 'idle',
+    },
+    {
+      label: 'Has Token',
+      state: token ? 'ok' : 'down',
     },
   ]
 
@@ -457,6 +507,18 @@ export default function Home() {
             </div>
           ))}
         </div>
+
+        {/* Debug Panel */}
+        <div className="mt-4 p-3 rounded-lg border border-[#2a2f36] bg-[#1a1e24] text-[10px] font-mono space-y-1">
+          <div className="text-muted mb-2 uppercase tracking-wide">Debug Info</div>
+          <div>isStreaming: <span className={isStreaming ? 'text-green-400' : 'text-red-400'}>{String(isStreaming)}</span></div>
+          <div>hasToken: <span className={token ? 'text-green-400' : 'text-red-400'}>{String(!!token)}</span></div>
+          <div>hasUrl: <span className={url ? 'text-green-400' : 'text-red-400'}>{String(!!url)}</span></div>
+          <div>wsConnected: <span className={wsConnected ? 'text-green-400' : 'text-red-400'}>{String(wsConnected)}</span></div>
+          <div>wsInitialized: <span className={wsInitialized ? 'text-green-400' : 'text-red-400'}>{String(wsInitialized)}</span></div>
+          <div>shouldStream: <span className={shouldStream ? 'text-green-400' : 'text-gray-400'}>{String(shouldStream)}</span></div>
+          <div>transitionStatus: <span className="text-yellow-400">{transitionStatus}</span></div>
+        </div>
       </div>
     </div>
   )
@@ -475,10 +537,20 @@ function StreamingPublisher({
     let isActive = true
     let pauseHandler: (() => void) | null = null
 
+    console.log('🎬 StreamingPublisher useEffect triggered', {
+      hasVideo: !!videoRef.current,
+      hasLocalParticipant: !!localParticipant,
+      participantIdentity: localParticipant?.identity,
+    })
+
     const publishVideoStream = async () => {
       const video = videoRef.current
       if (!video || !localParticipant || !isActive) {
-        console.error('Video element or participant not ready')
+        console.error('❌ Video element or participant not ready', {
+          hasVideo: !!video,
+          hasLocalParticipant: !!localParticipant,
+          isActive,
+        })
         return
       }
 

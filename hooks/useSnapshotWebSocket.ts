@@ -167,6 +167,17 @@ export function useSnapshotWebSocket({
       wsRef.current.close()
       wsRef.current = null
     }
+    // Reset ALL state and refs so next connection starts fresh
+    isConnectedRef.current = false
+    isInitializedRef.current = false
+    setIsConnected(false)
+    setIsInitialized(false)
+    setIncidentId(null)
+    connectResolveRef.current = null
+    connectRejectRef.current = null
+    initResolveRef.current = null
+    initRejectRef.current = null
+    console.log('📡 WebSocket state fully reset')
   }, [])
 
   return {

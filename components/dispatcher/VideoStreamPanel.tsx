@@ -26,6 +26,15 @@ function VideoRenderer({ callerId, large = false }: { callerId: string; large?: 
   const participants = useRemoteParticipants();
   const tracks = useTracks([Track.Source.Camera, Track.Source.ScreenShare]);
 
+  // Debug logging
+  console.log('🎬 VideoRenderer:', {
+    callerId,
+    participantCount: participants.length,
+    participantIds: participants.map(p => p.identity),
+    trackCount: tracks.length,
+    trackParticipants: tracks.map(t => ({ identity: t.participant.identity, hasTrack: !!t.publication.track })),
+  });
+
   // Find the track from the caller we're interested in
   const callerTrack = tracks.find(
     (track) => track.participant.identity === callerId && track.publication.track
@@ -491,6 +500,7 @@ export function VideoStreamPanel({ roomName, callerId, timelineEvents, videoStar
   const fetchToken = useCallback(async () => {
     if (!roomName) return;
 
+    console.log('🎬 Dispatcher fetching token for room:', roomName);
     setConnectionState("connecting");
     setError(null);
 
@@ -504,6 +514,7 @@ export function VideoStreamPanel({ roomName, callerId, timelineEvents, videoStar
           role: "dispatcher",
         }),
       });
+      console.log('🎬 Dispatcher token request for room:', roomName, 'response:', response.status);
 
       if (!response.ok) {
         throw new Error(`Failed to get token: ${response.status}`);
@@ -519,10 +530,13 @@ export function VideoStreamPanel({ roomName, callerId, timelineEvents, videoStar
     }
   }, [roomName]);
 
-  // Fetch token when roomName changes
+  // Fetch token when roomName changes - clear old token first to force unmount
   useEffect(() => {
+    setLiveKitToken(null);
+    setLiveKitUrl(null);
+    setConnectionState("disconnected");
     fetchToken();
-  }, [fetchToken]);
+  }, [roomName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle room connection events
   const handleConnected = () => setConnectionState("connected");
@@ -593,9 +607,10 @@ export function VideoStreamPanel({ roomName, callerId, timelineEvents, videoStar
         </>
       ) : (
         <>
-          {/* Single LiveKitRoom - Always mounted */}
+          {/* Single LiveKitRoom - key forces remount when room changes */}
           {liveKitUrl && liveKitToken ? (
             <LiveKitRoom
+              key={roomName}
               serverUrl={liveKitUrl}
               token={liveKitToken}
               connect={true}

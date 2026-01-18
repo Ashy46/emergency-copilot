@@ -46,7 +46,8 @@ export default function DispatcherPage() {
         console.log("SSE connected with clientId:", data.clientId);
       },
       onNewVideo: (data: { videoId: string; incidentId: string; lat: number; lng: number; status: "live" | "ended" | "recorded"; filename?: string }) => {
-        console.log("New video:", data);
+        console.log("🆕 SSE: New video received:", data);
+        console.log("🆔 Video ID for LiveKit room:", data.videoId);
         // Auto-construct videoUrl from filename if provided (for replay)
         const videoUrl = data.filename ? `/videos/${data.filename}` : null;
         // Add the new video to our list
