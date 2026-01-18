@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { Video, TimelineEvent } from "@/types/api";
 import { getVideoTimeline } from "@/lib/api";
+import { USE_MOCK_DATA } from "@/lib/mockData";
 import { VideoStreamPanel } from "./VideoStreamPanel";
 
 interface VideoDetailsPanelProps {
@@ -33,8 +34,13 @@ export function VideoDetailsPanel({
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
 
-  // Fetch timeline on mount
+  // Fetch timeline on mount (skip if using mock data - timeline comes via liveTimelineEvents)
   useEffect(() => {
+    if (USE_MOCK_DATA) {
+      // Mock data timeline is passed via liveTimelineEvents prop
+      setIsLoadingTimeline(false);
+      return;
+    }
     async function fetchTimeline() {
       setIsLoadingTimeline(true);
       try {
@@ -111,7 +117,12 @@ export function VideoDetailsPanel({
       {isExpanded && (
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Live Video Stream */}
-          <VideoStreamPanel roomName={video.id} callerId={video.id} />
+          <VideoStreamPanel
+            roomName={video.id}
+            callerId={video.id}
+            timelineEvents={allTimelineEvents}
+            videoStartTime={video.startedAt}
+          />
 
           {/* Current State / AI Summary */}
           {displayState && (

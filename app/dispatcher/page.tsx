@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import { getIncidents, getVideos } from "@/lib/api";
+import { USE_MOCK_DATA, mockIncidents, mockVideos, mockTimelineEvents } from "@/lib/mockData";
 import { useSSE, type SSEConnectionState } from "@/hooks/useSSE";
 import { VideoCard } from "@/components/dispatcher/VideoCard";
 import { IncidentCard } from "@/components/dispatcher/IncidentCard";
@@ -127,18 +128,30 @@ export default function DispatcherPage() {
     handlers: sseHandlers,
   });
 
-  // Fetch initial data
+  // Fetch initial data (or use mock data)
   useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
       setError(null);
       try {
-        const [incidentsData, videosData] = await Promise.all([
-          getIncidents({ status: "active" }),
-          getVideos(),
-        ]);
-        setIncidents(incidentsData);
-        setVideos(videosData);
+        if (USE_MOCK_DATA) {
+          // Use mock data for UI development
+          setIncidents(mockIncidents);
+          setVideos(mockVideos);
+          // Pre-populate timeline events for mock videos
+          const mockTimelines: Record<string, TimelineEvent[]> = {};
+          for (const videoId of Object.keys(mockTimelineEvents)) {
+            mockTimelines[videoId] = mockTimelineEvents[videoId];
+          }
+          setLiveTimelineEvents(mockTimelines);
+        } else {
+          const [incidentsData, videosData] = await Promise.all([
+            getIncidents({ status: "active" }),
+            getVideos(),
+          ]);
+          setIncidents(incidentsData);
+          setVideos(videosData);
+        }
       } catch (err) {
         console.error("Failed to fetch data:", err);
         setError(err instanceof Error ? err.message : "Failed to fetch data");
