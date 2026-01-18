@@ -224,10 +224,12 @@ function RoomContent({
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
   useEffect(() => {
+    let currentTrack: LocalVideoTrack | null = null
+
     const publishVideoStream = async () => {
       const video = videoRef.current
-      if (!video) {
-        console.error('Video element not ready')
+      if (!video || !localParticipant) {
+        console.error('Video element or participant not ready')
         return
       }
 
@@ -260,6 +262,11 @@ function RoomContent({
         const canvasStream = canvas.captureStream(30) // 30 FPS
         const videoTrack = canvasStream.getVideoTracks()[0]
 
+        if (!videoTrack) {
+          console.error('Could not get video track from canvas')
+          return
+        }
+
         // Continuously draw video to canvas
         const drawFrame = () => {
           if (video.paused || video.ended) {
@@ -279,25 +286,21 @@ function RoomContent({
           console.log('Video playing')
         } catch (playError) {
           console.error('Video autoplay failed:', playError)
-          alert('Click the video to start playback')
+          // Don't alert, just log - user can click play manually
         }
 
         drawFrame()
 
         // Create LiveKit track from the canvas stream
-        const track = new LocalVideoTrack(videoTrack, {
-          name: 'uploaded-video-stream'
-        })
-        await localParticipant.publishTrack(track, {
-          name: 'uploaded-video',
-          source: 'camera'
-        })
+        const track = new LocalVideoTrack(videoTrack)
+        currentTrack = track
+
+        await localParticipant.publishTrack(track)
         setLocalTrack(track)
 
         console.log('✓ Published video file stream to room')
       } catch (error) {
         console.error('Failed to publish video stream:', error)
-        alert(`Failed to publish stream: ${error}`)
       }
     }
 
@@ -314,15 +317,15 @@ function RoomContent({
       }
 
       // Unpublish and stop track
-      if (localTrack) {
-        localParticipant.unpublishTrack(localTrack).catch(console.error)
-        localTrack.stop()
+      if (currentTrack && localParticipant) {
+        localParticipant.unpublishTrack(currentTrack).catch(console.error)
+        currentTrack.stop()
       }
 
       // Clean up canvas
       canvasRef.current = null
     }
-  }, [videoUrl, localParticipant])
+  }, [videoUrl, localParticipant, videoRef])
 
   return (
     <div className="space-y-4">
