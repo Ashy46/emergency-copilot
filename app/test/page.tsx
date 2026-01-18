@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useDescriptionVision } from '@/hooks/useDescriptionVision'
-import { LiveKitRoom, useTracks, useLocalParticipant } from '@livekit/components-react'
-import { LocalVideoTrack, Track, Room, createLocalVideoTrack } from 'livekit-client'
+import { LiveKitRoom, useLocalParticipant } from '@livekit/components-react'
+import { LocalVideoTrack } from 'livekit-client'
 
 export default function TestPage() {
   const [videoFile, setVideoFile] = useState<File | null>(null)
@@ -219,26 +219,42 @@ function RoomContent({
   videoRef: React.RefObject<HTMLVideoElement | null>
 }) {
   const { localParticipant } = useLocalParticipant()
-  const [isPublishing, setIsPublishing] = useState(false)
   const [localTrack, setLocalTrack] = useState<LocalVideoTrack | null>(null)
+  const animationFrameRef = useRef<number | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
   useEffect(() => {
     const publishVideoStream = async () => {
-      if (!videoRef.current || isPublishing) return
+      const video = videoRef.current
+      if (!video) {
+        console.error('Video element not ready')
+        return
+      }
 
-      setIsPublishing(true)
       try {
-        const video = videoRef.current
-
         // Create a canvas to capture the video
         const canvas = document.createElement('canvas')
+        canvasRef.current = canvas
         const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          console.error('Could not get canvas context')
+          return
+        }
+
+        // Wait for video metadata to load
+        await new Promise<void>((resolve) => {
+          if (video.readyState >= 2) {
+            resolve()
+          } else {
+            video.addEventListener('loadedmetadata', () => resolve(), { once: true })
+          }
+        })
 
         // Set canvas size to match video
-        video.addEventListener('loadedmetadata', () => {
-          canvas.width = video.videoWidth
-          canvas.height = video.videoHeight
-        })
+        canvas.width = video.videoWidth || 640
+        canvas.height = video.videoHeight || 480
+
+        console.log('Canvas size:', canvas.width, 'x', canvas.height)
 
         // Get stream from canvas
         const canvasStream = canvas.captureStream(30) // 30 FPS
@@ -246,32 +262,65 @@ function RoomContent({
 
         // Continuously draw video to canvas
         const drawFrame = () => {
-          if (!video.paused && !video.ended && ctx) {
+          if (video.paused || video.ended) {
+            console.log('Video stopped, pausing canvas render')
+            return
+          }
+
+          if (ctx && canvasRef.current) {
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-            requestAnimationFrame(drawFrame)
+            animationFrameRef.current = requestAnimationFrame(drawFrame)
           }
         }
-        video.play()
+
+        // Start video playback
+        try {
+          await video.play()
+          console.log('Video playing')
+        } catch (playError) {
+          console.error('Video autoplay failed:', playError)
+          alert('Click the video to start playback')
+        }
+
         drawFrame()
 
         // Create LiveKit track from the canvas stream
-        const track = new LocalVideoTrack(videoTrack)
-        await localParticipant.publishTrack(track)
+        const track = new LocalVideoTrack(videoTrack, {
+          name: 'uploaded-video-stream'
+        })
+        await localParticipant.publishTrack(track, {
+          name: 'uploaded-video',
+          source: 'camera'
+        })
         setLocalTrack(track)
 
-        console.log('Published video file stream to room')
+        console.log('✓ Published video file stream to room')
       } catch (error) {
         console.error('Failed to publish video stream:', error)
+        alert(`Failed to publish stream: ${error}`)
       }
     }
 
     publishVideoStream()
 
+    // Cleanup
     return () => {
+      console.log('Cleaning up video stream')
+
+      // Cancel animation frame
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
+
+      // Unpublish and stop track
       if (localTrack) {
-        localParticipant.unpublishTrack(localTrack)
+        localParticipant.unpublishTrack(localTrack).catch(console.error)
         localTrack.stop()
       }
+
+      // Clean up canvas
+      canvasRef.current = null
     }
   }, [videoUrl, localParticipant])
 
