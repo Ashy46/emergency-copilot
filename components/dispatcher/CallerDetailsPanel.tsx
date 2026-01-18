@@ -6,9 +6,10 @@ interface CallerDetailsPanelProps {
   caller: Event;
   onClose: () => void;
   isExpanded: boolean;
+  timelineHeight?: number; // Height of timeline to offset bottom
 }
 
-export function CallerDetailsPanel({ caller, onClose, isExpanded }: CallerDetailsPanelProps) {
+export function CallerDetailsPanel({ caller, onClose, isExpanded, timelineHeight = 0 }: CallerDetailsPanelProps) {
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString();
   };
@@ -16,7 +17,10 @@ export function CallerDetailsPanel({ caller, onClose, isExpanded }: CallerDetail
   if (!caller) return null;
 
   return (
-    <div className="absolute top-4 right-4 bottom-4 w-96 bg-white shadow-2xl flex flex-col overflow-hidden z-[1500] rounded-xl">
+    <div 
+      className="absolute top-4 right-4 w-96 bg-white shadow-2xl flex flex-col overflow-hidden z-[1500] rounded-xl transition-all duration-200"
+      style={{ bottom: `${16 + timelineHeight}px` }}
+    >
       {/* Collapsible Header */}
       <button
         type="button"

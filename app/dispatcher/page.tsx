@@ -113,6 +113,9 @@ export default function DispatcherPage() {
     timestamp: caller.timestamp,
   }));
 
+  // Calculate timeline height for side panel offsets
+  const timelineHeight = eventHistory.length > 0 ? (timelineExpanded ? 200 : 64) : 0;
+
   return (
     <main className="h-screen w-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col">
       {/* Main Content Area */}
@@ -133,7 +136,10 @@ export default function DispatcherPage() {
 
         {/* Left Column: Caller List (Floating Panel) */}
         {headerExpanded && (
-          <div className="absolute top-4 left-4 bottom-4 w-80 bg-white shadow-2xl flex flex-col z-[1500] rounded-xl overflow-hidden">
+          <div 
+            className="absolute top-4 left-4 w-80 bg-white shadow-2xl flex flex-col z-[1500] rounded-xl overflow-hidden transition-all duration-200"
+            style={{ bottom: `${16 + timelineHeight}px` }}
+          >
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
               <button
                 type="button"
@@ -290,6 +296,7 @@ export default function DispatcherPage() {
             caller={selectedCaller}
             onClose={() => setDetailsExpanded(!detailsExpanded)}
             isExpanded={detailsExpanded}
+            timelineHeight={timelineHeight}
           />
         )}
 
