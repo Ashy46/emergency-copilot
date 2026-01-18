@@ -51,7 +51,21 @@ IMPORTANT:
 - Set all weapon fields even if false
 - Be precise with counts and descriptions`
 
-export function useOvershootVision() {
+interface UseOvershootVisionProps {
+  prompt: string;
+  clipLengthSeconds: number;
+  delaySeconds: number;
+  onResult: (event: unknown) => void;
+  onError: (error: Error) => void;
+}
+
+export function useOvershootVision({
+  prompt,
+  clipLengthSeconds,
+  delaySeconds,
+  onResult,
+  onError
+}: UseOvershootVisionProps) {
   const [message, setMessage] = useState<string | null>(null)
   const [vision, setVision] = useState<RealtimeVision | null>(null)
   const [events, setEvents] = useState<Event[]>([])
@@ -66,45 +80,14 @@ export function useOvershootVision() {
     const newVision = new RealtimeVision({
       apiUrl: 'https://cluster1.overshoot.ai/api/v0.2',
       apiKey: apiKey,
-      prompt: prompt,
+      prompt: prompt ?? prompt,
       source: { type: 'video', file: videoFile },
       processing: {
-        clip_length_seconds: 2,
-        delay_seconds: 2
+        clip_length_seconds: clipLengthSeconds,
+        delay_seconds: delaySeconds
       },
-      onResult: (result) => {
-        try {
-          // Parse the JSON response from the vision API
-          const parsedData = JSON.parse(result.result)
-
-          
-          // Construct the full Event object
-          const event: Event = {
-            id: uuidv4(),
-            callerId: uuidv4(), // Generate caller ID or use a stored one
-            timestamp: Date.now(),
-            coords: { lat: location?.latitude ?? 0, lng: location?.longitude ?? 0 },
-            type: 'newReport',
-            scenario: parsedData.scenario || 'unknown',
-            data: parsedData.data,
-            bystanderReport: parsedData.bystanderReport || 'Failed to parse result (Non error)'
-          }
-          setEvents([...events, event])
-
-          if (events.length >= 5) {
-            // Call the agent to analyze the events
-            setMasterEvent(event)
-          }
-          console.log('Parsed event:', event)
-          setMessage(event.bystanderReport)
-        } catch (error) {
-          console.error('Failed to parse vision result:', error)
-          setMessage('Failed to parse vision result')
-        }
-      },
-      onError: (error: any) => {
-        console.error('Vision error:', error)
-      }
+      onResult: (result) => onResult(result),
+      onError: onError
     })
     
     console.log('Vision instance created')
@@ -116,7 +99,7 @@ export function useOvershootVision() {
     
     setVision(newVision)
     return newVision
-  }, [location])
+  }, [location, prompt, clipLengthSeconds, delaySeconds, onResult, onError])
   
   const clearVision = useCallback(() => {
     setVision(null)
