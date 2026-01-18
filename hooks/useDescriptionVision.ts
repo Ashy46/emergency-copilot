@@ -18,12 +18,30 @@ export function useDescriptionVision() {
   const { vision, startVision, clearVision } = useOvershootVision({
     prompt: DESCRIPTION_VISION_PROMPT,
     clipLengthSeconds: 1,
-    delaySeconds: 0,
-    onResult: (result) => {
-      console.log('Description vision result:', result);
+    delaySeconds: 0.5,
+    onResult: (result: any) => {
+      if (result?.ok && result?.result) {
+        try {
+          console.log('Description vision result:', result.result);
+          const parsed = JSON.parse(result.result);
+          console.log('Description vision parsed:', parsed);
+
+          const URL = `${process.env.NEXT_PUBLIC_API_URL}/api/description-vision`;
+          fetch(URL, {
+            method: 'POST',
+            body: JSON.stringify(parsed),
+          }).then(response => response.json()).then(data => {
+            console.log('Description vision response:', data);
+          }).catch(error => {
+            console.error('Failed to send description vision result:', error);
+          });
+        } catch (e) {
+          console.error('Failed to parse vision result:', e);
+        }
+      }
     },
     onError: (error) => {
-      console.error('Description vision error:', error);
+      console.error('Description vision error:', error.message);
     }
   });
 
