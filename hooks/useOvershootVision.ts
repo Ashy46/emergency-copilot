@@ -6,50 +6,6 @@ import { v4 as uuidv4 } from 'uuid'
 
 import { useLocation } from './useLocation'
 
-const prompt = `Analyze this emergency scene and respond with a complete JSON object matching this EXACT structure:
-
-{
-  "data": {
-    "participantsCount": <number or null - total visible people involved>,
-    "injuredCount": <number - count of visibly injured people>,
-    "weapons": {
-      "firearm": {
-        "present": <boolean - seen or clearly indicated>,
-        "used": <boolean - actually used (shots fired, brandished)>
-      },
-      "knife": {
-        "present": <boolean>,
-        "used": <boolean - actually used (stabbing, slashing, brandished)>
-      },
-      "bluntObject": {
-        "present": <boolean - bat, pipe, bottle, etc.>,
-        "used": <boolean - swung, hit with>
-      },
-      "explosive": {
-        "present": <boolean>,
-        "used": <boolean - detonated or thrown>
-      },
-      "vehicleAsWeapon": {
-        "present": <boolean>,
-        "used": <boolean - ramming, deliberately hitting people>
-      },
-      "other": {
-        "present": <boolean - optional, any other weapon>,
-        "used": <boolean>
-      }
-    },
-    "aggressionLevel": "verbal" | "physical" | "armed" | "unknown"
-  },
-  "bystanderReport": "<detailed natural language description of what you observe in the scene>"
-}
-
-IMPORTANT: 
-- Provide ONLY the JSON object, no additional text
-- Base all assessments on visible evidence only
-- Use realistic coordinates if location is visible, otherwise use default [0, 0]
-- Set all weapon fields even if false
-- Be precise with counts and descriptions`
-
 interface UseOvershootVisionProps {
   prompt: string;
   clipLengthSeconds: number;
