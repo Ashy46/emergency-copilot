@@ -233,6 +233,11 @@ function RoomContent({
       }
 
       try {
+        // Set video properties first
+        video.muted = true
+        video.loop = true
+        video.playsInline = true
+
         // Wait for video metadata to load first
         if (video.readyState < 2) {
           console.log('Waiting for video metadata...')
@@ -245,28 +250,45 @@ function RoomContent({
 
         console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight)
 
-        // Start video playback
-        try {
-          video.muted = true
-          video.loop = true
-          await video.play()
-          console.log('Video playing')
-        } catch (playError) {
-          console.error('Video autoplay failed:', playError)
-          alert('Video autoplay failed. Please click the video to start it.')
-          return
+        // Start video playback - try multiple times if needed
+        let playAttempts = 0
+        while (playAttempts < 3) {
+          try {
+            await video.play()
+            console.log('Video playing')
+            break
+          } catch (playError) {
+            playAttempts++
+            console.error(`Video autoplay attempt ${playAttempts} failed:`, playError)
+            if (playAttempts >= 3) {
+              alert('Video autoplay failed. Please click the video to start it.')
+              return
+            }
+            await new Promise(resolve => setTimeout(resolve, 500))
+          }
         }
 
         if (!isActive) return
 
-        // Wait a moment for video to be ready
-        await new Promise(resolve => setTimeout(resolve, 200))
+        // Wait for video to be actually playing (not just started)
+        await new Promise<void>((resolve) => {
+          const checkPlaying = () => {
+            if (video.currentTime > 0 && !video.paused && !video.ended && video.readyState > 2) {
+              resolve()
+            } else {
+              setTimeout(checkPlaying, 50)
+            }
+          }
+          checkPlaying()
+        })
+
+        console.log('Video is actively playing, capturing stream...')
 
         if (!isActive) return
 
         // Capture stream directly from video element
         // @ts-ignore - captureStream exists but not in all TS types
-        const videoStream = video.captureStream() as MediaStream
+        const videoStream = video.captureStream(30) as MediaStream // Explicit 30 FPS
         const videoTrack = videoStream.getVideoTracks()[0]
 
         if (!videoTrack) {
@@ -275,6 +297,16 @@ function RoomContent({
         }
 
         console.log('Video track obtained:', videoTrack.getSettings())
+
+        // Ensure video keeps playing even if user interacts with controls
+        const ensurePlaying = () => {
+          if (video.paused && isActive && currentTrack) {
+            console.log('Video paused, restarting...')
+            video.play().catch(console.error)
+          }
+        }
+
+        video.addEventListener('pause', ensurePlaying)
 
         // Create LiveKit track from the video stream
         const track = new LocalVideoTrack(videoTrack)
@@ -332,6 +364,7 @@ function RoomContent({
           autoPlay
           loop
           muted
+          playsInline
           className="w-full h-full object-contain"
         />
       </div>
