@@ -139,7 +139,7 @@ export default function Home() {
       if (file.type.startsWith('video/')) {
         // Add 300ms delay for smooth UX
         await new Promise(resolve => setTimeout(resolve, 300))
-        
+
         setVideoFile(file)
         const url = URL.createObjectURL(file)
         setVideoUrl(url)
