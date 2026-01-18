@@ -1,8 +1,8 @@
-import type { Event } from "@/app/dispatcher/page";
+import type { LegacyEvent } from "@/types/legacy";
 import { scenarioFilterConfigs } from "@/lib/constants";
 
 interface FilterPanelProps {
-  allCallers: Event[];
+  allCallers: LegacyEvent[];
   selectedIncidents: Set<string>;
   selectedScenarios: Set<string>;
   onToggleIncident: (incidentId: string) => void;

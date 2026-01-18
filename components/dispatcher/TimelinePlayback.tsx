@@ -1,8 +1,8 @@
-import type { Event } from "@/app/dispatcher/page";
+import type { LegacyEvent } from "@/types/legacy";
 import { scenarioLabels, scenarioTimelineColors } from "@/lib/constants";
 
 interface TimelinePlaybackProps {
-  eventHistory: Event[];
+  eventHistory: LegacyEvent[];
   isLiveMode: boolean;
   isPlaying: boolean;
   playbackSpeed: number;

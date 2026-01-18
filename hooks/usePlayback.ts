@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import type { Event } from "@/app/dispatcher/page";
+import type { LegacyEvent } from "@/types/legacy";
 
 type Incident = {
   incidentId: string;
@@ -7,11 +7,11 @@ type Incident = {
   updatedAt: number;
 };
 
-export function usePlayback(eventHistory: Event[]) {
+export function usePlayback(eventHistory: LegacyEvent[]) {
   const [playbackTime, setPlaybackTime] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [callersById, setCallersById] = useState<Record<string, Event>>({});
+  const [callersById, setCallersById] = useState<Record<string, LegacyEvent>>({});
   const [incidentsById, setIncidentsById] = useState<Record<string, Incident>>({});
 
   const playbackIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -25,7 +25,7 @@ export function usePlayback(eventHistory: Event[]) {
   const rebuildStateUpToTime = (targetTime: number) => {
     const eventsUpToTime = eventHistory.filter((e) => e.timestamp <= targetTime);
 
-    const newCallersById: Record<string, Event> = {};
+    const newCallersById: Record<string, LegacyEvent> = {};
     const newIncidentsById: Record<string, Incident> = {};
 
     eventsUpToTime.forEach((event) => {

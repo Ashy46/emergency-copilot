@@ -1,35 +1,296 @@
 @import "tailwindcss";
 
+/* ============================================
+   EMERGENCY COPILOT v2 DESIGN SYSTEM
+   AIP Operations Center Aesthetic
+   ============================================ */
+
 :root {
-  --background: #242424;
-  --foreground: rgba(255, 255, 255, 0.87);
+  /* ==========================================
+     CORE COLORS
+     ========================================== */
+
+  /* Backgrounds */
+  --bg-primary: #050505;
+  --bg-secondary: #0a0a0a;
+  --bg-tertiary: #0f0f0f;
+
+  /* Surface / Card */
+  --surface-card: #0c0c0c;
+  --surface-card-hover: #111111;
+  --surface-elevated: #141414;
+
+  /* Borders */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --border-accent: rgba(255, 255, 255, 0.15);
+
+  /* Text */
+  --text-primary: rgba(255, 255, 255, 0.95);
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-tertiary: rgba(255, 255, 255, 0.5);
+  --text-muted: rgba(255, 255, 255, 0.35);
+
+  /* ==========================================
+     ACCENT GRADIENTS (Lines/Strokes Only)
+     ========================================== */
+
+  /* Emergency - Red to Orange */
+  --grad-emergency-start: #ef4444;
+  --grad-emergency-mid: #f97316;
+  --grad-emergency-end: #fb923c;
+
+  /* Active - Blue to Purple */
+  --grad-active-start: #3b82f6;
+  --grad-active-mid: #8b5cf6;
+  --grad-active-end: #a855f7;
+
+  /* Resolved - Teal to Green */
+  --grad-resolved-start: #14b8a6;
+  --grad-resolved-mid: #22c55e;
+  --grad-resolved-end: #4ade80;
+
+  /* Info - Cyan to Blue */
+  --grad-info-start: #06b6d4;
+  --grad-info-mid: #0ea5e9;
+  --grad-info-end: #3b82f6;
+
+  /* ==========================================
+     STATUS COLORS
+     ========================================== */
+
+  --status-live: #ef4444;
+  --status-live-glow: rgba(239, 68, 68, 0.3);
+  --status-active: #3b82f6;
+  --status-active-glow: rgba(59, 130, 246, 0.3);
+  --status-resolved: #22c55e;
+  --status-resolved-glow: rgba(34, 197, 94, 0.3);
+  --status-ended: #6b7280;
+  --status-warning: #f59e0b;
+  --status-warning-glow: rgba(245, 158, 11, 0.3);
+
+  /* ==========================================
+     SPACING & SIZING
+     ========================================== */
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  --tile-padding: 16px;
+  --tile-gap: 12px;
+
+  /* ==========================================
+     TYPOGRAPHY
+     ========================================== */
+
+  --font-display: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+
+  /* ==========================================
+     EFFECTS
+     ========================================== */
+
+  --glow-emergency: 0 0 20px rgba(239, 68, 68, 0.15), 0 0 40px rgba(239, 68, 68, 0.1);
+  --glow-active: 0 0 20px rgba(59, 130, 246, 0.15), 0 0 40px rgba(59, 130, 246, 0.1);
+  --glow-resolved: 0 0 20px rgba(34, 197, 94, 0.15), 0 0 40px rgba(34, 197, 94, 0.1);
+
+  /* Legacy compatibility */
+  --background: var(--bg-primary);
+  --foreground: var(--text-primary);
 }
+
+/* ============================================
+   TAILWIND THEME INTEGRATION
+   ============================================ */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Colors */
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-tertiary: var(--bg-tertiary);
+  --color-surface-card: var(--surface-card);
+  --color-surface-hover: var(--surface-card-hover);
+  --color-surface-elevated: var(--surface-elevated);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+  --color-border-accent: var(--border-accent);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-text-muted: var(--text-muted);
+
+  /* Gradients */
+  --color-emergency-start: var(--grad-emergency-start);
+  --color-emergency-mid: var(--grad-emergency-mid);
+  --color-emergency-end: var(--grad-emergency-end);
+
+  --color-active-start: var(--grad-active-start);
+  --color-active-mid: var(--grad-active-mid);
+  --color-active-end: var(--grad-active-end);
+
+  --color-resolved-start: var(--grad-resolved-start);
+  --color-resolved-mid: var(--grad-resolved-mid);
+  --color-resolved-end: var(--grad-resolved-end);
+
+  /* Status */
+  --color-status-live: var(--status-live);
+  --color-status-active: var(--status-active);
+  --color-status-resolved: var(--status-resolved);
+  --color-status-ended: var(--status-ended);
+  --color-status-warning: var(--status-warning);
+
+  /* Fonts */
+  --font-sans: var(--font-display);
+  --font-mono: var(--font-mono);
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --background: #ffffff;
-    --foreground: #213547;
-  }
+/* ============================================
+   BASE STYLES
+   ============================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-display);
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
   min-height: 100vh;
+  line-height: 1.5;
 }
 
+/* ============================================
+   TECHNICAL GRID BACKGROUND
+   ============================================ */
+
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.bg-grid-dense {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+
+.bg-noise {
+  position: relative;
+}
+
+.bg-noise::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.015;
+  pointer-events: none;
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+/* Pulse Ring - For active emergency markers */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Ping - Faster emergency pulse */
+@keyframes ping-emergency {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.animate-ping-emergency {
+  animation: ping-emergency 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Glow Pulse */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--status-live-glow);
+  }
+  50% {
+    box-shadow: 0 0 20px 4px var(--status-live-glow);
+  }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* Border Gradient Animation */
+@keyframes border-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-border-flow {
+  animation: border-flow 3s linear infinite;
+  background-size: 200% 200%;
+}
+
+/* Scan Line */
+@keyframes scan-line {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+.animate-scan-line {
+  animation: scan-line 3s linear infinite;
+}
+
+/* Fade In */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -42,5 +303,590 @@ body {
 }
 
 .animate-fadeIn {
-  animation: fadeIn 0.3s ease-in;
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Slide In */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slideIn {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* Signal Fill */
+@keyframes signal-fill {
+  0% {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.animate-signal-fill {
+  animation: signal-fill 0.5s ease-out forwards;
+  transform-origin: bottom;
+}
+
+/* ============================================
+   GRADIENT BORDERS (Stroke-Only Effect)
+   ============================================ */
+
+.gradient-border-emergency {
+  position: relative;
+}
+
+.gradient-border-emergency::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--grad-emergency-start), var(--grad-emergency-mid), var(--grad-emergency-end));
+  border-radius: inherit;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  pointer-events: none;
+}
+
+.gradient-border-active {
+  position: relative;
+}
+
+.gradient-border-active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--grad-active-start), var(--grad-active-mid), var(--grad-active-end));
+  border-radius: inherit;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  pointer-events: none;
+}
+
+.gradient-border-resolved {
+  position: relative;
+}
+
+.gradient-border-resolved::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--grad-resolved-start), var(--grad-resolved-mid), var(--grad-resolved-end));
+  border-radius: inherit;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  pointer-events: none;
+}
+
+/* ============================================
+   TILE STYLES
+   ============================================ */
+
+.tile {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--tile-padding);
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.tile:hover {
+  background: var(--surface-card-hover);
+  border-color: var(--border-default);
+}
+
+.tile-elevated {
+  background: var(--surface-elevated);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Corner Icon Position */
+.tile-icon {
+  position: absolute;
+  top: var(--tile-padding);
+  right: var(--tile-padding);
+  width: 24px;
+  height: 24px;
+  color: var(--text-tertiary);
+}
+
+/* ============================================
+   LIVE VIDEO FEED OVERLAY
+   ============================================ */
+
+.live-feed-container {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-tertiary);
+}
+
+.live-feed-container.is-live {
+  box-shadow: var(--glow-emergency);
+}
+
+.live-feed-container.is-live::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  background: linear-gradient(135deg, var(--grad-emergency-start), var(--grad-emergency-mid), var(--grad-emergency-end));
+  border-radius: inherit;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  pointer-events: none;
+  animation: border-flow 3s linear infinite;
+  background-size: 200% 200%;
+}
+
+.live-feed-metadata {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* ============================================
+   TIMELINE STYLES
+   ============================================ */
+
+.timeline {
+  position: relative;
+  padding-left: 24px;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(to bottom, var(--border-subtle), var(--border-default), var(--border-subtle));
+}
+
+.timeline-node {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--surface-card);
+  border: 2px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timeline-node.is-active {
+  border-color: var(--status-active);
+  box-shadow: 0 0 12px var(--status-active-glow);
+}
+
+.timeline-node.is-live {
+  border-color: var(--status-live);
+  box-shadow: 0 0 12px var(--status-live-glow);
+}
+
+.timeline-node.is-live::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--status-live);
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* ============================================
+   MARKER STYLES (Leaflet Custom)
+   ============================================ */
+
+.marker-incident {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  background: var(--surface-card);
+  border: 1.5px solid var(--border-strong);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s ease;
+}
+
+.marker-incident.is-active {
+  border-color: var(--status-active);
+  box-shadow: 0 0 16px var(--status-active-glow), 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.marker-incident.is-selected {
+  transform: scale(1.15);
+  border-color: var(--text-primary);
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.2), 0 4px 16px rgba(0, 0, 0, 0.6);
+}
+
+.marker-video {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-card);
+  border: 1.5px solid var(--border-strong);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s ease;
+}
+
+.marker-video.is-live {
+  border-color: var(--status-live);
+  box-shadow: 0 0 20px var(--status-live-glow), 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.marker-video.is-live::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--status-live);
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.marker-video.is-selected {
+  transform: scale(1.2);
+  border-color: var(--text-primary);
+}
+
+/* ============================================
+   SIGNAL STATUS BADGE
+   ============================================ */
+
+.signal-badge {
+  display: flex;
+  gap: 3px;
+  padding: 6px 8px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.signal-bar {
+  width: 4px;
+  height: 16px;
+  background: var(--border-default);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.signal-bar.is-filled {
+  background: linear-gradient(to top, var(--grad-emergency-start), var(--grad-emergency-end));
+  box-shadow: 0 0 8px var(--status-live-glow);
+}
+
+.signal-bar.is-warning {
+  background: linear-gradient(to top, var(--status-warning), var(--grad-emergency-start));
+}
+
+/* ============================================
+   BUTTON STYLES
+   ============================================ */
+
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  min-height: 44px;
+  min-width: 44px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+.btn-action:hover {
+  background: var(--surface-card-hover);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.btn-action:active {
+  transform: translateY(0);
+}
+
+.btn-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-action-primary {
+  background: linear-gradient(135deg, var(--grad-active-start), var(--grad-active-mid));
+  border-color: transparent;
+  color: white;
+}
+
+.btn-action-primary:hover {
+  background: linear-gradient(135deg, var(--grad-active-mid), var(--grad-active-end));
+  box-shadow: var(--glow-active);
+}
+
+.btn-action-emergency {
+  background: linear-gradient(135deg, var(--grad-emergency-start), var(--grad-emergency-mid));
+  border-color: transparent;
+  color: white;
+}
+
+.btn-action-emergency:hover {
+  background: linear-gradient(135deg, var(--grad-emergency-mid), var(--grad-emergency-end));
+  box-shadow: var(--glow-emergency);
+}
+
+.btn-action-resolve {
+  background: linear-gradient(135deg, var(--grad-resolved-start), var(--grad-resolved-mid));
+  border-color: transparent;
+  color: white;
+}
+
+.btn-action-resolve:hover {
+  background: linear-gradient(135deg, var(--grad-resolved-mid), var(--grad-resolved-end));
+  box-shadow: var(--glow-resolved);
+}
+
+/* Technical Glass Effect */
+.btn-glass {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+}
+
+.btn-glass:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border-default);
+}
+
+/* ============================================
+   LAYOUT: DISPATCHER GRID
+   ============================================ */
+
+.dispatcher-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr 400px;
+  grid-template-rows: 1fr;
+  height: 100vh;
+  gap: 1px;
+  background: var(--bg-primary);
+}
+
+.dispatcher-layout > * {
+  background: var(--bg-secondary);
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Responsive - Collapse details panel */
+@media (max-width: 1200px) {
+  .dispatcher-layout {
+    grid-template-columns: 280px 1fr;
+  }
+
+  .dispatcher-layout .details-panel {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 400px;
+    z-index: 100;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Responsive - Stack on mobile */
+@media (max-width: 768px) {
+  .dispatcher-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .dispatcher-layout .sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: auto;
+    max-height: 50vh;
+    z-index: 100;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* ============================================
+   SCROLLBAR STYLING
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.text-mono {
+  font-family: var(--font-mono);
+}
+
+.text-gradient-emergency {
+  background: linear-gradient(135deg, var(--grad-emergency-start), var(--grad-emergency-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-active {
+  background: linear-gradient(135deg, var(--grad-active-start), var(--grad-active-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-resolved {
+  background: linear-gradient(135deg, var(--grad-resolved-start), var(--grad-resolved-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Focus States for Accessibility */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--status-active);
+  outline-offset: 2px;
+}
+
+/* Touch Target Size */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Status Dot */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-dot.live {
+  background: var(--status-live);
+  box-shadow: 0 0 8px var(--status-live-glow);
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.status-dot.active {
+  background: var(--status-active);
+}
+
+.status-dot.resolved {
+  background: var(--status-resolved);
+}
+
+.status-dot.ended {
+  background: var(--status-ended);
+}
+
+/* ============================================
+   LEAFLET MAP OVERRIDES
+   ============================================ */
+
+.leaflet-container {
+  background: var(--bg-tertiary) !important;
+  font-family: var(--font-display) !important;
+}
+
+.leaflet-tile-pane {
+  filter: brightness(0.6) contrast(1.1) saturate(0.8);
+}
+
+.leaflet-control-zoom {
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--radius-md) !important;
+  overflow: hidden;
+}
+
+.leaflet-control-zoom a {
+  background: var(--surface-card) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: var(--surface-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: var(--surface-elevated) !important;
+  color: var(--text-primary) !important;
+  border-radius: var(--radius-md) !important;
+  border: 1px solid var(--border-subtle) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+.leaflet-popup-tip {
+  background: var(--surface-elevated) !important;
+  border: 1px solid var(--border-subtle) !important;
+}
+
+.leaflet-popup-close-button {
+  color: var(--text-tertiary) !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: var(--text-primary) !important;
 }

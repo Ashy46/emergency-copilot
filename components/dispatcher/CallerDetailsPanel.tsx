@@ -1,9 +1,23 @@
-import type { Event } from "@/app/dispatcher/page";
-import { scenarioLabels } from "@/lib/constants";
+import { scenarioLabels, scenarioColors } from "@/lib/constants";
 import { VideoStreamPanel } from "./VideoStreamPanel";
 
+type ScenarioKey = keyof typeof scenarioColors;
+
+// Legacy Event type - this component is unused
+interface LegacyEvent {
+  id: string;
+  timestamp: number;
+  scenario: ScenarioKey;
+  lat: number;
+  lng: number;
+  videoId: string;
+  incidentId: string;
+  bystanderReport?: string;
+  data?: Record<string, unknown>;
+}
+
 interface CallerDetailsPanelProps {
-  caller: Event;
+  caller: LegacyEvent;
   onClose: () => void;
   isExpanded: boolean;
   timelineHeight?: number; // Height of timeline to offset bottom

@@ -1,8 +1,18 @@
-import type { Event } from "@/app/dispatcher/page";
 import { scenarioColors, scenarioIcons, scenarioLabels } from "@/lib/constants";
 
+type ScenarioKey = keyof typeof scenarioColors;
+
+// Legacy Event type - this component is unused
+interface LegacyEvent {
+  id: string;
+  timestamp: number;
+  scenario: ScenarioKey;
+  lat: number;
+  lng: number;
+}
+
 interface CallerCardProps {
-  caller: Event;
+  caller: LegacyEvent;
   isSelected: boolean;
   onClick: () => void;
 }
