@@ -1,5 +1,6 @@
 import type { Event } from "@/app/dispatcher/page";
 import { scenarioLabels } from "@/lib/constants";
+import { VideoStreamPanel } from "./VideoStreamPanel";
 
 interface CallerDetailsPanelProps {
   caller: Event;
@@ -57,6 +58,9 @@ export function CallerDetailsPanel({ caller, onClose, isExpanded }: CallerDetail
       {isExpanded && (
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-3">
+            {/* Live Video Stream */}
+            <VideoStreamPanel roomName={caller.videoId} callerId={caller.id} />
+
             {/* Caller ID */}
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
