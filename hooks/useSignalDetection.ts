@@ -39,18 +39,16 @@ export function useSignalDetection(config?: SignalDetectionConfig) {
   const [isDetecting, setIsDetecting] = useState(false)
 
   // Pure refs - no state, no re-renders
-  const lastTriggerRef = useRef<number>(0)
   const signalCountRef = useRef<number>(0)
   const thresholdReachedRef = useRef<boolean>(false)
   const currentVideoFileRef = useRef<File | null>(null)
   
   const sensitivityThreshold = config?.sensitivityThreshold ?? 0.5
-  const cooldownMs = config?.cooldownMs ?? 5000
   const signalThreshold = config?.signalThreshold ?? 3
   const onTransition = config?.onTransition
 
   const startDetection = useCallback((videoSource: File) => {
-    console.log('Starting signal detection...')
+    console.log('Starting signal detection with video:', videoSource.name, videoSource.type, videoSource.size)
     setIsDetecting(true)
     setShouldStream(false)
     setLastSignal(null)
@@ -59,6 +57,14 @@ export function useSignalDetection(config?: SignalDetectionConfig) {
     currentVideoFileRef.current = videoSource // Store the video file
 
     const apiKey = process.env.NEXT_PUBLIC_OVERSHOOT_API_KEY ?? ''
+    
+    if (!apiKey) {
+      console.error('❌ NEXT_PUBLIC_OVERSHOOT_API_KEY is not set!')
+      setIsDetecting(false)
+      return null
+    }
+    
+    console.log('🔑 Overshoot API key present:', apiKey.substring(0, 8) + '...')
 
     const newVision = new RealtimeVision({
       apiUrl: 'https://cluster1.overshoot.ai/api/v0.2',
@@ -69,12 +75,12 @@ export function useSignalDetection(config?: SignalDetectionConfig) {
         clip_length_seconds: 1.0,  // Short clips for faster detection
         delay_seconds: 0.5       // Low delay for real-time response
       },
-      onResult: (result: any) => {
+      onResult: (result: { ok?: boolean; result?: string } | string | AnomalyResponse) => {
         try {
           // Handle the result structure from Overshoot
           let parsed: AnomalyResponse
           
-          if (result?.ok && result?.result) {
+          if (typeof result === 'object' && result !== null && 'ok' in result && 'result' in result && result.result) {
             // Clean up markdown if present
             let cleanResult = result.result.trim()
             cleanResult = cleanResult.replace(/^```(?:json)?\s*/g, '').replace(/\s*```$/g, '')
@@ -84,7 +90,7 @@ export function useSignalDetection(config?: SignalDetectionConfig) {
           } else if (typeof result === 'string') {
             parsed = JSON.parse(result)
           } else {
-            parsed = result
+            parsed = result as AnomalyResponse
           }
           
           console.log('Signal detection parsed:', parsed)
@@ -130,17 +136,35 @@ export function useSignalDetection(config?: SignalDetectionConfig) {
         }
       },
       onError: (error: Error) => {
-        console.error('Signal detection error:', error)
+        console.error('❌ Signal detection onError callback:', error)
+        console.error('Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2))
       }
     })
+    
+    console.log('📹 RealtimeVision instance created')
 
+    // Start the vision - handle async errors
     if (typeof newVision.start === 'function') {
+      console.log('🚀 Calling newVision.start()...')
+      
+      // start() returns a Promise
       newVision.start()
+        .then(() => {
+          console.log('✅ Overshoot SDK started successfully')
+        })
+        .catch((error: Error) => {
+          console.error('❌ Overshoot SDK failed to start:', error)
+          console.error('Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2))
+          setIsDetecting(false)
+        })
+    } else {
+      console.error('❌ newVision.start is not a function:', typeof newVision.start)
+      setIsDetecting(false)
     }
 
     setVision(newVision)
     return newVision
-  }, [sensitivityThreshold, cooldownMs, signalThreshold, onTransition])
+  }, [sensitivityThreshold, signalThreshold, onTransition])
 
   const stopDetection = useCallback(() => {
     console.log('Stopping signal detection...')

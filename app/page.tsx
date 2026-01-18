@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useSignalDetection } from '@/hooks/useSignalDetection'
 import { useDescriptionVision } from '@/hooks/useDescriptionVision'
 import { useSnapshotWebSocket } from '@/hooks/useSnapshotWebSocket'
@@ -14,17 +14,18 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
 
-  // Generate video ID once
-  const videoId = useRef(uuidv4())
+  // Generate video ID once (stable across renders)
+  const videoId = useMemo(() => uuidv4(), [])
 
   // LiveKit state
   const [isStreaming, setIsStreaming] = useState(false)
   const [token, setToken] = useState<string | null>(null)
   const [url, setUrl] = useState<string | null>(null)
-  const [roomName] = useState('video_v1') // Match dispatcher format
-  // const [callerId] = useState(`caller_${Date.now()}`) // Dynamic caller ID
-  const [callerId] = useState('caller_c1') // Hardcoded for testing
   const hasTransitioned = useRef(false) // Prevent multiple transitions
+  
+  // Store WebSocket connection promise so onTransition can await it
+  // Now just resolves when connection is ready (doesn't create incident yet)
+  const wsConnectionPromise = useRef<Promise<void> | null>(null)
 
   // Mock location for now - in production, get from GPS
   const [location] = useState({ lat: 41.796483, lng: -87.606919 })
@@ -32,15 +33,13 @@ export default function Home() {
   // WebSocket for streaming snapshots to API
   const {
     connect: connectWebSocket,
+    initialize: initializeWebSocket,
     disconnect: disconnectWebSocket,
     sendSnapshot,
     isConnected: wsConnected,
     isInitialized: wsInitialized,
     incidentId
   } = useSnapshotWebSocket({
-    videoId: videoId.current,
-    lat: location.lat,
-    lng: location.lng,
     onInitialized: (data) => {
       console.log('🎯 Video assigned to incident:', data.incidentId)
     },
@@ -71,20 +70,28 @@ export default function Home() {
       hasTransitioned.current = true
 
       try {
-        // DON'T stop signal detection - let it keep running!
-        // Just start the description vision in parallel
-        console.log('1. Starting description vision (keeping signal detection running)...')
+        // 1. Wait for WebSocket connection to be ready (preempted on video upload)
+        console.log('1. Waiting for WebSocket connection...')
+        if (!wsConnectionPromise.current) {
+          throw new Error('WebSocket connection not started - upload a video first')
+        }
+        await wsConnectionPromise.current
+        console.log('✅ WebSocket connected')
+
+        // 2. NOW create the incident/video (only after anomaly detected)
+        console.log('2. Creating incident/video entry...')
+        const wsResult = await initializeWebSocket(videoId, location.lat, location.lng)
+        console.log('✅ Incident created:', wsResult.incidentId)
+
+        // 3. Start description vision - snapshots will be sent via WebSocket
+        console.log('3. Starting description vision...')
         startVision(videoFile)
 
-        await new Promise(resolve => setTimeout(resolve, 500))
-
-        console.log('2. Connecting to LiveKit...')
+        // 4. Connect to LiveKit for video streaming
+        console.log('4. Connecting to LiveKit...')
         await connectAndStream()
 
-        console.log('3. Connecting WebSocket...')
-        connectWebSocket()
-
-        console.log('✅ Transition complete! Both Overshoot instances running in parallel.')
+        console.log('✅ Transition complete! Overshoot → WebSocket → API pipeline active.')
       } catch (error) {
         console.error('❌ Transition failed:', error)
         hasTransitioned.current = false
@@ -111,12 +118,13 @@ export default function Home() {
 
   const connectAndStream = async () => {
     try {
+      // Use videoId as both room name and identity
       const response = await fetch('/api/livekit/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          roomName,
-          identity: callerId,
+          roomName: videoId,
+          identity: videoId,
           role: 'caller',
         }),
       })
@@ -126,7 +134,7 @@ export default function Home() {
       setToken(data.token)
       setIsStreaming(true)
 
-      console.log('✓ Connected to LiveKit room:', roomName)
+      console.log('✓ Connected to LiveKit room:', videoId)
     } catch (err) {
       console.error('Failed to connect to LiveKit:', err)
       alert('Failed to start streaming')
@@ -140,6 +148,12 @@ export default function Home() {
         setVideoFile(file)
         const url = URL.createObjectURL(file)
         setVideoUrl(url)
+        
+        // Preempt WebSocket connection (just establish connection, don't create incident yet)
+        console.log('📡 Preempting WebSocket connection (parallel with signal detection)...')
+        wsConnectionPromise.current = connectWebSocket()
+        
+        // Start signal detection
         startDetection(file)
       } else {
         alert('Please upload a valid video file')
@@ -161,6 +175,7 @@ export default function Home() {
     setToken(null)
     setUrl(null)
     hasTransitioned.current = false
+    wsConnectionPromise.current = null
 
     if (videoUrl) {
       URL.revokeObjectURL(videoUrl)
@@ -199,9 +214,7 @@ export default function Home() {
       {isStreaming && (
         <div className="bg-blue-500/20 border border-blue-500 p-4 rounded-lg text-left w-full max-w-[500px]">
           <h3 className="text-lg font-bold mb-2 text-blue-400">🔴 Live Stream Active</h3>
-          <p><strong>Room:</strong> {roomName}</p>
-          <p><strong>Caller ID:</strong> {callerId}</p>
-          <p><strong>Video ID:</strong> <span className="font-mono text-xs">{videoId.current}</span></p>
+          <p><strong>Video ID:</strong> <span className="font-mono text-xs">{videoId}</span></p>
           {incidentId && <p><strong>Incident ID:</strong> <span className="font-mono text-xs">{incidentId}</span></p>}
 
           <div className="mt-3 space-y-2">
@@ -393,7 +406,7 @@ function StreamingContent({
         if (!isActive) return
 
         // Capture stream directly from video element
-        // @ts-ignore - captureStream exists but not in all TS types
+        // @ts-expect-error - captureStream exists but not in all TS types
         const videoStream = video.captureStream(30) as MediaStream
         const videoTrack = videoStream.getVideoTracks()[0]
 
