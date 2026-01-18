@@ -1,18 +1,23 @@
 import { useOvershootVision } from "./useOvershootVision";
 
-const DESCRIPTION_VISION_PROMPT = `You are a description vision agent. You are given a snapshot of a video and you need to analyze the scene and provide a structured description.
+const DESCRIPTION_VISION_PROMPT = `You are a description vision agent. Analyze the scene and provide a structured description.
 
-Respond with ONLY a JSON object:
+Return ONLY a valid JSON object with NO markdown formatting, NO backticks, NO additional text:
 
 {
-  "scenario": "<string - one of: 'carAccident', 'fire', 'medical', 'unknown'>",
+  "scenario": "carAccident" | "fire" | "medical" | "unknown",
   "data": {
-    "description": "<string - a clear, concise description of what is happening in the scene>",
-    <any additional data about the scene structured as a JSON object>
+    "description": "clear description of what is happening",
+    "additional_fields": "any other relevant data as nested JSON"
   }
 }
 
-IMPORTANT: Return ONLY valid JSON, no additional text or formatting.`;
+CRITICAL RULES:
+- Return ONLY the JSON object
+- NO markdown code blocks (no \`\`\`json or \`\`\`)
+- NO text before or after the JSON
+- Use double quotes for all strings
+- Ensure all JSON is properly escaped`;
 
 export function useDescriptionVision() {
   const { vision, startVision, clearVision } = useOvershootVision({
@@ -23,7 +28,17 @@ export function useDescriptionVision() {
       if (result?.ok && result?.result) {
         try {
           console.log('Description vision result:', result.result);
-          const parsed = JSON.parse(result.result);
+          
+          // Clean up the result - remove markdown code blocks if present
+          let cleanResult = result.result.trim();
+          
+          // Remove markdown code blocks (```json ... ``` or ``` ... ```)
+          cleanResult = cleanResult.replace(/^```(?:json)?\s*/g, '').replace(/\s*```$/g, '');
+          
+          // Remove any leading/trailing whitespace or newlines
+          cleanResult = cleanResult.trim();
+          
+          const parsed = JSON.parse(cleanResult);
           console.log('Description vision parsed:', parsed);
 
           // const URL = `${process.env.NEXT_PUBLIC_API_URL}/api/description-vision`;
@@ -37,6 +52,7 @@ export function useDescriptionVision() {
           // });
         } catch (e) {
           console.error('Failed to parse vision result:', e);
+          console.error('Raw result:', result.result);
         }
       }
     },
