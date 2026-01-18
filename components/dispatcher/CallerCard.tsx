@@ -1,4 +1,4 @@
-import type { Event } from "@/app/dispatcher/page";
+import type { Event } from "@/types/event";
 import { scenarioColors, scenarioIcons, scenarioLabels } from "@/lib/constants";
 
 interface CallerCardProps {

@@ -1,4 +1,4 @@
-import type { Event } from "@/app/dispatcher/page";
+import type { Event } from "@/types/event";
 import { scenarioLabels } from "@/lib/constants";
 import { VideoStreamPanel } from "./VideoStreamPanel";
 

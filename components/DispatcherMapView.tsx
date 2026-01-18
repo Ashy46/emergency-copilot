@@ -7,6 +7,25 @@ import "leaflet/dist/leaflet.css";
 import type { IncidentStatus, VideoStatus } from "@/types/api";
 import type { MapMarker } from "@/lib/mapHelpers";
 
+// Dark popup styles
+const darkPopupStyles = `
+  .dark-popup .leaflet-popup-content-wrapper {
+    background: #111827;
+    color: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  }
+  .dark-popup .leaflet-popup-tip {
+    background: #111827;
+  }
+  .dark-popup .leaflet-popup-close-button {
+    color: #9ca3af !important;
+  }
+  .dark-popup .leaflet-popup-close-button:hover {
+    color: white !important;
+  }
+`;
+
 interface DispatcherMapViewProps {
   markers: MapMarker[];
   selectedMarkerId: string | null;
@@ -151,12 +170,15 @@ export default function DispatcherMapView({
   };
 
   return (
-    <MapContainer center={center} zoom={13} style={{ height: "100%", width: "100%" }}>
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      {markers.map((marker) => {
+    <>
+      <style dangerouslySetInnerHTML={{ __html: darkPopupStyles }} />
+      <MapContainer center={center} zoom={13} style={{ height: "100%", width: "100%" }}>
+        {/* CartoDB Dark Matter - Modern dark theme */}
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        />
+        {markers.map((marker) => {
         const isSelected = selectedMarkerId === marker.id && selectedMarkerType === marker.type;
 
         if (marker.type === "incident") {
@@ -170,15 +192,15 @@ export default function DispatcherMapView({
               }}
               zIndexOffset={isSelected ? 1000 : marker.status === "active" ? 500 : 0}
             >
-              <Popup>
-                <div className="text-sm min-w-[180px]">
+              <Popup className="dark-popup">
+                <div className="text-sm min-w-[180px] bg-gray-900 text-white p-2 rounded-lg -m-3">
                   <div className="font-bold mb-1 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                     Incident
                   </div>
-                  <div className="text-gray-600 text-xs mb-1">
+                  <div className="text-gray-300 text-xs mb-1">
                     {incidentStatusLabels[marker.status]}
                     {marker.videoCount !== undefined && ` • ${marker.videoCount} video${marker.videoCount !== 1 ? "s" : ""}`}
                   </div>
@@ -198,17 +220,17 @@ export default function DispatcherMapView({
               }}
               zIndexOffset={isSelected ? 1000 : marker.status === "live" ? 400 : 0}
             >
-              <Popup>
-                <div className="text-sm min-w-[180px]">
+              <Popup className="dark-popup">
+                <div className="text-sm min-w-[180px] bg-gray-900 text-white p-2 rounded-lg -m-3">
                   <div className="font-bold mb-1 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                     Video
                   </div>
-                  <div className="text-gray-600 text-xs mb-1">{videoStatusLabels[marker.status]}</div>
+                  <div className="text-gray-300 text-xs mb-1">{videoStatusLabels[marker.status]}</div>
                   {marker.currentState && (
-                    <p className="text-xs text-gray-700 line-clamp-2 mt-1">{marker.currentState}</p>
+                    <p className="text-xs text-gray-400 line-clamp-2 mt-1">{marker.currentState}</p>
                   )}
                   <div className="text-xs text-gray-500 mt-1 font-mono">{marker.id.slice(0, 8)}...</div>
                 </div>
@@ -217,7 +239,8 @@ export default function DispatcherMapView({
           );
         }
       })}
-      <MapController markers={markers} recenterTrigger={recenterTrigger} />
-    </MapContainer>
+        <MapController markers={markers} recenterTrigger={recenterTrigger} />
+      </MapContainer>
+    </>
   );
 }

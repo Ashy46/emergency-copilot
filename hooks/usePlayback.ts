@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import type { Event } from "@/app/dispatcher/page";
+import type { Event } from "@/types/event";
 
 type Incident = {
   incidentId: string;
