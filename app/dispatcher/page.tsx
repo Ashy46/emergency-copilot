@@ -8,15 +8,19 @@ const DispatcherMapView = dynamic(
   { ssr: false }
 );
 
-type ReportUpdate = {
-  callerId: string;
-  incidentId: string;
-  timestamp: number; // Date.now() epoch ms
-  coords: { lat: number; lng: number };
-  scenario: "carAccident" | "fire" | "medical" | "unknown";
-  data?: Record<string, any>;
-  bystanderReport?: string;
-};
+export type EventScenario = "carAccident" | "fire" | "medical" | "unknown";
+
+export interface Event {
+  id: string;              // caller/event ID
+  incidentId: string;      // for grouping multiple events to same incident
+  videoId: string;         // video feed ID
+  timestamp: number;       // Date.now() epoch ms
+  lat: number;            // latitude (flat, not nested)
+  lng: number;            // longitude (flat, not nested)
+  scenario: EventScenario;
+  data: any;              // additional event data
+  bystanderReport?: string; // optional text report
+}
 
 type Incident = {
   incidentId: string;
@@ -26,7 +30,7 @@ type Incident = {
 
 export default function DispatcherPage() {
   // Event history for playback
-  const [eventHistory, setEventHistory] = useState<ReportUpdate[]>([]);
+  const [eventHistory, setEventHistory] = useState<Event[]>([]);
 
   // Playback state
   const [playbackTime, setPlaybackTime] = useState<number | null>(null); // null = live mode
@@ -34,7 +38,7 @@ export default function DispatcherPage() {
   const [playbackSpeed, setPlaybackSpeed] = useState(1); // 1x, 2x, 4x
 
   // Current state (filtered by playback time)
-  const [callersById, setCallersById] = useState<Record<string, ReportUpdate>>(
+  const [callersById, setCallersById] = useState<Record<string, Event>>(
     {}
   );
   const [incidentsById, setIncidentsById] = useState<
@@ -48,30 +52,35 @@ export default function DispatcherPage() {
   const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set());
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
+  // UI Collapse States
+  const [headerExpanded, setHeaderExpanded] = useState(true);
+  const [timelineExpanded, setTimelineExpanded] = useState(true);
+  const [detailsExpanded, setDetailsExpanded] = useState(true);
+
   const playbackIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Rebuild state from history up to a specific time
   const rebuildStateUpToTime = (targetTime: number) => {
     const eventsUpToTime = eventHistory.filter((e) => e.timestamp <= targetTime);
 
-    const newCallersById: Record<string, ReportUpdate> = {};
+    const newCallersById: Record<string, Event> = {};
     const newIncidentsById: Record<string, Incident> = {};
 
-    eventsUpToTime.forEach((report) => {
+    eventsUpToTime.forEach((event) => {
       // Update latest-per-caller
-      newCallersById[report.callerId] = report;
+      newCallersById[event.id] = event;
 
       // Group by incident
-      const existing = newIncidentsById[report.incidentId];
+      const existing = newIncidentsById[event.incidentId];
       const callers = existing?.callers || [];
-      const updatedCallers = callers.includes(report.callerId)
+      const updatedCallers = callers.includes(event.id)
         ? callers
-        : [...callers, report.callerId];
+        : [...callers, event.id];
 
-      newIncidentsById[report.incidentId] = {
-        incidentId: report.incidentId,
+      newIncidentsById[event.incidentId] = {
+        incidentId: event.incidentId,
         callers: updatedCallers,
-        updatedAt: Math.max(existing?.updatedAt || 0, report.timestamp),
+        updatedAt: Math.max(existing?.updatedAt || 0, event.timestamp),
       };
     });
 
@@ -79,43 +88,43 @@ export default function DispatcherPage() {
     setIncidentsById(newIncidentsById);
   };
 
-  const handleUpdate = (report: ReportUpdate) => {
+  const handleUpdate = (event: Event) => {
     // Validate coords: lat/lng must be finite numbers
     if (
-      !Number.isFinite(report.coords.lat) ||
-      !Number.isFinite(report.coords.lng)
+      !Number.isFinite(event.lat) ||
+      !Number.isFinite(event.lng)
     ) {
-      console.error("Invalid coordinates:", report.coords);
+      console.error("Invalid coordinates:", { lat: event.lat, lng: event.lng });
       return;
     }
 
     // Add to event history
-    setEventHistory((prev) => [...prev, report]);
+    setEventHistory((prev) => [...prev, event]);
 
     // If in live mode, update current state
     if (playbackTime === null) {
       // Update latest-per-caller
       setCallersById((prev) => ({
         ...prev,
-        [report.callerId]: report,
+        [event.id]: event,
       }));
 
       // Group by incident
       setIncidentsById((prev) => {
-        const existing = prev[report.incidentId];
+        const existing = prev[event.incidentId];
         const callers = existing?.callers || [];
 
-        // Add callerId to callers[] if not already present
-        const updatedCallers = callers.includes(report.callerId)
+        // Add id to callers[] if not already present
+        const updatedCallers = callers.includes(event.id)
           ? callers
-          : [...callers, report.callerId];
+          : [...callers, event.id];
 
         return {
           ...prev,
-          [report.incidentId]: {
-            incidentId: report.incidentId,
+          [event.incidentId]: {
+            incidentId: event.incidentId,
             callers: updatedCallers,
-            updatedAt: Math.max(existing?.updatedAt || 0, report.timestamp),
+            updatedAt: Math.max(existing?.updatedAt || 0, event.timestamp),
           },
         };
       });
@@ -138,14 +147,13 @@ export default function DispatcherPage() {
     const latOffset = (Math.random() - 0.5) * 0.02; // ~1km range
     const lngOffset = (Math.random() - 0.5) * 0.02;
 
-    const samplePayload: ReportUpdate = {
-      callerId: `caller_c${Object.keys(callersById).length + 1}`,
+    const samplePayload: Event = {
+      id: `caller_c${Object.keys(callersById).length + 1}`,
       incidentId: `incident_i${Math.floor(Math.random() * 3) + 1}`,
+      videoId: `video_v${Object.keys(callersById).length + 1}`,
       timestamp: Date.now(),
-      coords: {
-        lat: baseLat + latOffset,
-        lng: baseLng + lngOffset,
-      },
+      lat: baseLat + latOffset,
+      lng: baseLng + lngOffset,
       scenario: randomScenario,
       data: { vehicles: 2, hazards: ["traffic_risk"] },
       bystanderReport: "Simulated emergency report.",
@@ -292,8 +300,8 @@ export default function DispatcherPage() {
   };
 
   const callerLocations = callers.map((caller) => ({
-    callerId: caller.callerId,
-    coords: caller.coords,
+    callerId: caller.id,
+    coords: { lat: caller.lat, lng: caller.lng },
     scenario: caller.scenario,
     timestamp: caller.timestamp,
   }));
@@ -316,27 +324,59 @@ export default function DispatcherPage() {
   return (
     <main className="h-screen w-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col">
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Column: Caller List */}
-        <div className="w-80 bg-white shadow-xl flex flex-col">
-          <div className="p-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-            <div className="flex items-center gap-3 mb-2">
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-              <h1 className="text-2xl font-bold">
-                Dispatch Center
-              </h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${isLiveMode ? 'bg-red-400 animate-pulse' : 'bg-gray-300'}`} />
-              <p className="text-sm text-blue-100">
-                {callers.length} active caller{callers.length !== 1 ? "s" : ""}
-                {!isLiveMode && " (Playback)"}
-              </p>
-            </div>
-        </div>
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Floating Toggle Button (when sidebar is closed) */}
+        {!headerExpanded && (
+          <button
+            type="button"
+            onClick={() => setHeaderExpanded(true)}
+            className="absolute top-4 left-4 z-[2000] bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 rounded-lg shadow-2xl hover:from-blue-700 hover:to-blue-800 transition-all hover:scale-110 flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            <span className="font-semibold text-sm">Dispatch</span>
+          </button>
+        )}
 
+        {/* Left Column: Caller List (Floating Panel) */}
+        {headerExpanded && (
+          <div className="absolute top-0 left-0 bottom-0 w-80 bg-white shadow-2xl flex flex-col z-[1500]">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+              <button
+                type="button"
+                onClick={() => setHeaderExpanded(false)}
+                className="w-full p-4 flex items-center justify-between hover:bg-blue-800 transition-all"
+              >
+              <div className="flex items-center gap-3">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                <h1 className="text-xl font-bold">
+                  Dispatch Center
+                </h1>
+              </div>
+              <svg
+                className={`w-5 h-5 transition-transform duration-200 ${
+                  headerExpanded ? "rotate-180" : ""
+                }`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+              <div className="px-6 pb-4">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${isLiveMode ? 'bg-red-400 animate-pulse' : 'bg-gray-300'}`} />
+                  <p className="text-sm text-blue-100">
+                    {callers.length} active caller{callers.length !== 1 ? "s" : ""}
+                    {!isLiveMode && " (Playback)"}
+                  </p>
+                </div>
+              </div>
+            </div>
         <div className="p-4 space-y-2 bg-gray-50 border-b border-gray-200">
           <button
             onClick={simulateUpdate}
@@ -364,11 +404,12 @@ export default function DispatcherPage() {
         {allCallers.length > 0 && (
           <div className="bg-white border-b border-gray-200">
             {/* Filter Header - Always Visible */}
-            <button
-              onClick={() => setFiltersExpanded(!filtersExpanded)}
-              className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center gap-2">
+            <div className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+              <button
+                type="button"
+                onClick={() => setFiltersExpanded(!filtersExpanded)}
+                className="flex items-center gap-2 flex-1"
+              >
                 <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
@@ -378,31 +419,35 @@ export default function DispatcherPage() {
                     {selectedIncidents.size + selectedScenarios.size}
                   </span>
                 )}
-              </div>
+              </button>
               <div className="flex items-center gap-2">
                 {hasActiveFilters && (
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearFilters();
-                    }}
+                    type="button"
+                    onClick={clearFilters}
                     className="text-xs text-blue-600 hover:text-blue-700 font-semibold px-2 py-1 hover:bg-blue-50 rounded transition-colors"
                   >
                     Clear
                   </button>
                 )}
-                <svg
-                  className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
-                    filtersExpanded ? "rotate-180" : ""
-                  }`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+                <button
+                  type="button"
+                  onClick={() => setFiltersExpanded(!filtersExpanded)}
+                  className="p-1"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                  <svg
+                    className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
+                      filtersExpanded ? "rotate-180" : ""
+                    }`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
               </div>
-            </button>
+            </div>
 
             {/* Filter Options - Collapsible */}
             {filtersExpanded && (
@@ -527,10 +572,10 @@ export default function DispatcherPage() {
                 };
                 return (
                   <div
-                    key={caller.callerId}
-                    onClick={() => setSelectedCallerId(caller.callerId)}
+                    key={caller.id}
+                    onClick={() => setSelectedCallerId(caller.id)}
                     className={`p-4 cursor-pointer rounded-lg border-2 transition-all duration-200 ${
-                      selectedCallerId === caller.callerId
+                      selectedCallerId === caller.id
                         ? `bg-gradient-to-br ${scenarioColors[caller.scenario]} shadow-md scale-[1.02]`
                         : "bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm"
                     }`}
@@ -540,7 +585,7 @@ export default function DispatcherPage() {
                         <span className="text-2xl">{scenarioIcons[caller.scenario]}</span>
                         <div>
                           <div className="font-semibold text-gray-800 text-sm">
-                            {caller.callerId}
+                            {caller.id}
                           </div>
                           <div className="text-xs text-gray-500">
                             {formatTimestamp(caller.timestamp)}
@@ -554,7 +599,7 @@ export default function DispatcherPage() {
                         <span>{scenarioLabels[caller.scenario]}</span>
                       </div>
                       <div className="text-gray-500 font-mono text-[10px]">
-                        {caller.coords.lat.toFixed(4)}, {caller.coords.lng.toFixed(4)}
+                        {caller.lat.toFixed(4)}, {caller.lng.toFixed(4)}
                       </div>
                     </div>
                   </div>
@@ -563,7 +608,8 @@ export default function DispatcherPage() {
             </div>
           )}
         </div>
-      </div>
+          </div>
+        )}
 
       {/* Middle Column: Map */}
       <div className="flex-1 bg-gray-200 relative shadow-inner">
@@ -575,7 +621,11 @@ export default function DispatcherPage() {
         />
         {/* Map overlay badge */}
         {callers.length > 0 && (
-          <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg px-4 py-2 z-[1000]">
+          <div
+            className={`absolute top-4 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg px-4 py-2 z-[1000] transition-all duration-300 ${
+              headerExpanded ? "left-[336px]" : "left-4"
+            }`}
+          >
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
               <span className="text-sm font-semibold text-gray-700">
@@ -586,40 +636,39 @@ export default function DispatcherPage() {
         )}
       </div>
 
-      {/* Right Column: Details Panel */}
-      <div className="w-96 bg-white shadow-xl overflow-y-auto">
-        {!selectedCaller ? (
-          <div className="h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-white">
-            <div className="text-center p-8">
-              <svg
-                className="mx-auto h-20 w-20 text-gray-300 mb-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <p className="text-gray-600 font-medium mb-1">Select a Caller</p>
-              <p className="text-sm text-gray-400">Click a caller on the map or list to view details</p>
-            </div>
-          </div>
-        ) : (
-          <div className="p-6">
-            <div className="mb-6 pb-6 border-b-2 border-gray-200">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="text-4xl">
+      {/* Floating Details Toggle Button (when closed but caller is selected) */}
+      {selectedCaller && !detailsExpanded && (
+        <button
+          type="button"
+          onClick={() => setDetailsExpanded(true)}
+          className="absolute top-4 right-4 z-[2000] bg-gradient-to-r from-gray-700 to-gray-800 text-white p-3 rounded-lg shadow-2xl hover:from-gray-800 hover:to-gray-900 transition-all hover:scale-110 flex items-center gap-2"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="font-semibold text-sm">Details</span>
+        </button>
+      )}
+
+      {/* Right Column: Details Panel - Floating */}
+      {selectedCaller && detailsExpanded && (
+        <div className="absolute top-0 right-0 bottom-0 w-96 bg-white shadow-2xl flex flex-col overflow-hidden z-[1500]">
+          <>
+            {/* Collapsible Header */}
+            <button
+              type="button"
+              onClick={() => setDetailsExpanded(!detailsExpanded)}
+              className="p-4 bg-gray-50 border-b border-gray-200 hover:bg-gray-100 transition-all flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <div className="text-3xl">
                   {selectedCaller.scenario === 'carAccident' && '🚗'}
                   {selectedCaller.scenario === 'fire' && '🔥'}
                   {selectedCaller.scenario === 'medical' && '⚕️'}
                   {selectedCaller.scenario === 'unknown' && '❓'}
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-800">
+                <div className="text-left">
+                  <h2 className="text-lg font-bold text-gray-800">
                     Caller Details
                   </h2>
                   <div className="text-xs text-gray-500 flex items-center gap-1.5">
@@ -630,9 +679,22 @@ export default function DispatcherPage() {
                   </div>
                 </div>
               </div>
-            </div>
+              <svg
+                className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${
+                  detailsExpanded ? "rotate-180" : ""
+                }`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
 
-            <div className="space-y-3">
+            {/* Details Content */}
+            {detailsExpanded && (
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="space-y-3">
               {/* Caller ID */}
               <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200 shadow-sm">
                 <div className="flex items-center gap-2 mb-2">
@@ -644,7 +706,7 @@ export default function DispatcherPage() {
                   </div>
                 </div>
                 <div className="text-sm font-mono font-bold text-gray-800">
-                  {selectedCaller.callerId}
+                  {selectedCaller.id}
                 </div>
               </div>
 
@@ -692,11 +754,11 @@ export default function DispatcherPage() {
                 <div className="font-mono text-xs text-gray-700 space-y-1">
                   <div className="flex justify-between">
                     <span className="text-gray-500">Lat:</span>
-                    <span className="font-semibold">{selectedCaller.coords.lat.toFixed(6)}</span>
+                    <span className="font-semibold">{selectedCaller.lat.toFixed(6)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Lng:</span>
-                    <span className="font-semibold">{selectedCaller.coords.lng.toFixed(6)}</span>
+                    <span className="font-semibold">{selectedCaller.lng.toFixed(6)}</span>
                   </div>
                 </div>
               </div>
@@ -734,17 +796,56 @@ export default function DispatcherPage() {
                   </pre>
                 </div>
               )}
-            </div>
-          </div>
-        )}
-      </div>
+                </div>
+              </div>
+            )}
+          </>
+        </div>
+      )}
     </div>
 
     {/* Timeline Playback Controls */}
     {eventHistory.length > 0 && (
-      <div className="bg-gradient-to-r from-gray-50 to-white border-t-2 border-gray-300 shadow-2xl p-6 space-y-4">
-        {/* Controls Row */}
-        <div className="flex items-center gap-3">
+      <div className="bg-gradient-to-r from-gray-50 to-white border-t-2 border-gray-300 shadow-2xl">
+        {/* Collapsible Header */}
+        <button
+          type="button"
+          onClick={() => setTimelineExpanded(!timelineExpanded)}
+          className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-100 transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="font-bold text-gray-800">Timeline Playback</span>
+            {isLiveMode ? (
+              <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">
+                <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                LIVE
+              </span>
+            ) : (
+              <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-semibold">
+                PLAYBACK
+              </span>
+            )}
+          </div>
+          <svg
+            className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${
+              timelineExpanded ? "rotate-180" : ""
+            }`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {/* Timeline Content */}
+        {timelineExpanded && (
+          <div className="px-6 pb-6 space-y-4">
+            {/* Controls Row */}
+            <div className="flex items-center gap-3">
           {/* Play/Pause Button */}
           <button
             onClick={togglePlayback}
@@ -862,14 +963,14 @@ export default function DispatcherPage() {
                   };
                   return (
                     <div
-                      key={`${event.callerId}-${index}`}
+                      key={`${event.id}-${index}`}
                       className="absolute top-1/2 w-3 h-3 rounded-full cursor-pointer hover:scale-150 transition-transform pointer-events-auto border-2 border-white shadow-md"
                       style={{
                         left: `${position}%`,
                         backgroundColor: scenarioColors[event.scenario],
                         transform: "translate(-50%, -50%)",
                       }}
-                      title={`${event.callerId} - ${scenarioLabels[event.scenario]} - ${formatTimelineTimestamp(event.timestamp)}`}
+                      title={`${event.id} - ${scenarioLabels[event.scenario]} - ${formatTimelineTimestamp(event.timestamp)}`}
                       onClick={() => handleTimelineChange(event.timestamp)}
                     />
                   );
@@ -906,6 +1007,8 @@ export default function DispatcherPage() {
             </div>
           </div>
         </div>
+          </div>
+        )}
       </div>
     )}
   </main>

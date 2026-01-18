@@ -13,8 +13,20 @@ interface CallerLocation {
   timestamp: number;
 }
 
+// Also support flat lat/lng for Event compatibility
+interface CallerLocationFlat {
+  callerId: string;
+  lat: number;
+  lng: number;
+  accuracy?: number;
+  scenario: "carAccident" | "fire" | "medical" | "unknown";
+  timestamp: number;
+}
+
+type CallerLocationInput = CallerLocation | CallerLocationFlat;
+
 interface DispatcherMapViewProps {
-  callers: CallerLocation[];
+  callers: CallerLocationInput[];
   selectedCallerId: string | null;
   onSelectCaller: (callerId: string) => void;
   recenterTrigger?: number;
@@ -72,14 +84,19 @@ const createScenarioIcon = (scenario: string, isSelected: boolean) => {
   });
 };
 
-function MapController({ callers, recenterTrigger }: { callers: CallerLocation[]; recenterTrigger?: number }) {
+function MapController({ callers, recenterTrigger }: { callers: CallerLocationInput[]; recenterTrigger?: number }) {
   const map = useMap();
 
   useEffect(() => {
     if (callers.length > 0 && recenterTrigger) {
       // Fit bounds to show all callers
       const bounds = L.latLngBounds(
-        callers.map(c => [c.coords.lat, c.coords.lng])
+        callers.map(c => {
+          // Handle both nested and flat structures
+          const lat = 'coords' in c ? c.coords.lat : c.lat;
+          const lng = 'coords' in c ? c.coords.lng : c.lng;
+          return [lat, lng];
+        })
       );
       map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
     }
@@ -99,7 +116,9 @@ export default function DispatcherMapView({
   // Calculate center from callers or use default
   const center: [number, number] =
     callers.length > 0
-      ? [callers[0].coords.lat, callers[0].coords.lng]
+      ? 'coords' in callers[0]
+        ? [callers[0].coords.lat, callers[0].coords.lng]
+        : [callers[0].lat, callers[0].lng]
       : defaultCenter;
 
   const formatTimestamp = (timestamp: number) => {
@@ -125,10 +144,14 @@ export default function DispatcherMapView({
       />
       {callers.map((caller) => {
         const isSelected = caller.callerId === selectedCallerId;
+        // Handle both nested and flat structures
+        const lat = 'coords' in caller ? caller.coords.lat : caller.lat;
+        const lng = 'coords' in caller ? caller.coords.lng : caller.lng;
+
         return (
           <div key={caller.callerId}>
             <Marker
-              position={[caller.coords.lat, caller.coords.lng]}
+              position={[lat, lng]}
               icon={createScenarioIcon(caller.scenario, isSelected)}
               eventHandlers={{
                 click: () => onSelectCaller(caller.callerId),
@@ -148,7 +171,7 @@ export default function DispatcherMapView({
             </Marker>
             {caller.accuracy && (
               <Circle
-                center={[caller.coords.lat, caller.coords.lng]}
+                center={[lat, lng]}
                 radius={caller.accuracy}
                 pathOptions={{
                   fillColor: isSelected ? "#3b82f6" : "#6b7280",
