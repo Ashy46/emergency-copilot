@@ -42,31 +42,31 @@ export function TimelinePlayback({
   }
 
   return (
-    <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-sm border border-gray-200 shadow-2xl z-[1500] rounded-xl overflow-hidden">
+    <div className="absolute bottom-4 left-4 right-4 bg-surface-card/95 backdrop-blur-sm border border-border-subtle shadow-2xl z-[1500] rounded-xl overflow-hidden">
       {/* Collapsible Header */}
       <button
         type="button"
         onClick={onToggleExpand}
-        className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-100 transition-all"
+        className="w-full px-6 py-4 flex items-center justify-between hover:bg-surface-card-hover transition-all"
       >
         <div className="flex items-center gap-3">
-          <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <span className="font-bold text-gray-800">Timeline Playback</span>
+          <span className="font-bold text-text-primary">Timeline Playback</span>
           {isLiveMode ? (
-            <span className="text-xs bg-red-600 text-white px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">
+            <span className="text-xs bg-status-live text-white px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">
               <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
               LIVE
             </span>
           ) : (
-            <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-semibold">
+            <span className="text-xs bg-status-active text-white px-2 py-0.5 rounded-full font-semibold">
               PLAYBACK
             </span>
           )}
         </div>
         <svg
-          className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${
+          className={`w-5 h-5 text-text-tertiary transition-transform duration-200 ${
             isExpanded ? "rotate-180" : ""
           }`}
           fill="none"
@@ -85,7 +85,7 @@ export function TimelinePlayback({
             {/* Play/Pause Button */}
             <button
               onClick={onTogglePlayback}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+              className="btn-action-primary px-6 py-3"
             >
               {isPlaying ? (
                 <>
@@ -108,12 +108,10 @@ export function TimelinePlayback({
             <button
               onClick={onGoToLive}
               disabled={isLiveMode}
-              className={`${
+              className={`btn-action px-6 py-3 ${
                 isLiveMode
-                  ? "bg-red-600 text-white"
-                  : "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white"
-              } px-6 py-3 rounded-lg disabled:opacity-100 font-semibold flex items-center gap-2 shadow-lg transition-all duration-200 ${
-                !isLiveMode && "hover:shadow-xl transform hover:scale-105"
+                  ? "bg-status-live border-status-live text-white"
+                  : "btn-action-emergency"
               }`}
             >
               <div className={`w-2 h-2 rounded-full ${isLiveMode ? "bg-white animate-pulse" : "bg-white"}`} />
@@ -121,11 +119,11 @@ export function TimelinePlayback({
             </button>
 
             {/* Speed Control */}
-            <div className="flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-lg border border-gray-300">
-              <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="flex items-center gap-2 bg-bg-tertiary px-4 py-2 rounded-lg border border-border-subtle">
+              <svg className="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              <span className="text-sm font-semibold text-gray-700">Speed:</span>
+              <span className="text-sm font-semibold text-text-secondary">Speed:</span>
               <div className="flex gap-1">
                 {[1, 2, 4].map((speed) => (
                   <button
@@ -133,8 +131,8 @@ export function TimelinePlayback({
                     onClick={() => onSpeedChange(speed)}
                     className={`px-3 py-1 rounded-md font-semibold text-sm transition-all duration-200 ${
                       playbackSpeed === speed
-                        ? "bg-blue-600 text-white shadow-md scale-110"
-                        : "bg-white text-gray-700 hover:bg-gray-200 border border-gray-300"
+                        ? "bg-status-active text-white shadow-md scale-110"
+                        : "bg-surface-card text-text-secondary hover:bg-surface-card-hover border border-border-subtle"
                     }`}
                   >
                     {speed}x
@@ -144,12 +142,12 @@ export function TimelinePlayback({
             </div>
 
             {/* Current Time Display */}
-            <div className="ml-auto bg-gray-800 text-white px-4 py-2 rounded-lg font-mono text-sm font-bold shadow-lg flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="ml-auto bg-surface-elevated text-text-primary px-4 py-2 rounded-lg font-mono text-sm font-bold shadow-lg flex items-center gap-2 border border-border-subtle">
+              <svg className="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               {isLiveMode ? (
-                <span className="text-red-400 font-bold">● LIVE</span>
+                <span className="text-status-live font-bold">LIVE</span>
               ) : (
                 formatTimelineTimestamp(currentTime)
               )}
@@ -157,13 +155,13 @@ export function TimelinePlayback({
           </div>
 
           {/* Timeline Slider */}
-          <div className="bg-white p-4 rounded-lg border border-gray-300 shadow-inner">
+          <div className="bg-bg-tertiary p-4 rounded-lg border border-border-subtle">
             <div className="flex items-center gap-4 mb-3">
               <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-                <span className="text-xs text-gray-600 font-mono font-semibold bg-gray-100 px-2 py-1 rounded">
+                <span className="text-xs text-text-secondary font-mono font-semibold bg-surface-card px-2 py-1 rounded border border-border-subtle">
                   {formatTimelineTimestamp(minTime)}
                 </span>
               </div>
@@ -178,12 +176,12 @@ export function TimelinePlayback({
                   className="w-full h-3 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   style={{
                     background: isLiveMode
-                      ? "linear-gradient(to right, #e5e7eb 0%, #e5e7eb 100%)"
-                      : `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${
+                      ? "var(--border-default)"
+                      : `linear-gradient(to right, var(--status-active) 0%, var(--status-active) ${
                           ((currentTime - minTime) / (maxTime - minTime)) * 100
-                        }%, #e5e7eb ${
+                        }%, var(--border-default) ${
                           ((currentTime - minTime) / (maxTime - minTime)) * 100
-                        }%, #e5e7eb 100%)`,
+                        }%, var(--border-default) 100%)`,
                   }}
                 />
                 {/* Event Markers on Timeline */}
@@ -194,7 +192,7 @@ export function TimelinePlayback({
                     return (
                       <div
                         key={`${event.id}-${index}`}
-                        className="absolute top-1/2 w-3 h-3 rounded-full cursor-pointer hover:scale-150 transition-transform pointer-events-auto border-2 border-white shadow-md"
+                        className="absolute top-1/2 w-3 h-3 rounded-full cursor-pointer hover:scale-150 transition-transform pointer-events-auto border-2 border-surface-card shadow-md"
                         style={{
                           left: `${position}%`,
                           backgroundColor: scenarioTimelineColors[event.scenario],
@@ -208,10 +206,10 @@ export function TimelinePlayback({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600 font-mono font-semibold bg-gray-100 px-2 py-1 rounded">
+                <span className="text-xs text-text-secondary font-mono font-semibold bg-surface-card px-2 py-1 rounded border border-border-subtle">
                   {formatTimelineTimestamp(maxTime)}
                 </span>
-                <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </div>
@@ -220,20 +218,20 @@ export function TimelinePlayback({
             {/* Timeline Legend */}
             <div className="flex items-center justify-center gap-4 text-xs">
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-red-500" />
-                <span className="text-gray-600">Car Accident</span>
+                <div className="w-2 h-2 rounded-full bg-status-live" />
+                <span className="text-text-secondary">Car Accident</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-orange-500" />
-                <span className="text-gray-600">Fire</span>
+                <div className="w-2 h-2 rounded-full bg-status-warning" />
+                <span className="text-text-secondary">Fire</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                <span className="text-gray-600">Medical</span>
+                <div className="w-2 h-2 rounded-full bg-status-active" />
+                <span className="text-text-secondary">Medical</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-gray-500" />
-                <span className="text-gray-600">Unknown</span>
+                <div className="w-2 h-2 rounded-full bg-status-ended" />
+                <span className="text-text-secondary">Unknown</span>
               </div>
             </div>
           </div>

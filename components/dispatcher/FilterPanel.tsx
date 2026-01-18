@@ -40,20 +40,20 @@ export function FilterPanel({
   }
 
   return (
-    <div className="bg-white border-b border-gray-200">
+    <div className="bg-surface-card border-b border-border-subtle">
       {/* Filter Header - Always Visible */}
-      <div className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+      <div className="p-4 flex items-center justify-between hover:bg-surface-card-hover transition-colors">
         <button
           type="button"
           onClick={onToggleExpand}
           className="flex items-center gap-2 flex-1"
         >
-          <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
           </svg>
-          <span className="font-semibold text-sm text-gray-700">Filters</span>
+          <span className="font-semibold text-sm text-text-primary">Filters</span>
           {hasActiveFilters && (
-            <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full font-semibold">
+            <span className="bg-status-active text-white text-xs px-2 py-0.5 rounded-full font-semibold">
               {selectedIncidents.size + selectedScenarios.size}
             </span>
           )}
@@ -63,7 +63,7 @@ export function FilterPanel({
             <button
               type="button"
               onClick={onClear}
-              className="text-xs text-blue-600 hover:text-blue-700 font-semibold px-2 py-1 hover:bg-blue-50 rounded transition-colors"
+              className="text-xs text-status-active hover:text-text-primary font-semibold px-2 py-1 hover:bg-bg-tertiary rounded transition-colors"
             >
               Clear
             </button>
@@ -74,7 +74,7 @@ export function FilterPanel({
             className="p-1"
           >
             <svg
-              className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
+              className={`w-4 h-4 text-text-tertiary transition-transform duration-200 ${
                 isExpanded ? "rotate-180" : ""
               }`}
               fill="none"
@@ -89,10 +89,10 @@ export function FilterPanel({
 
       {/* Filter Options - Collapsible */}
       {isExpanded && (
-        <div className="px-4 pb-4 pt-3 space-y-3 border-t border-gray-100">
+        <div className="px-4 pb-4 pt-3 space-y-3 border-t border-border-subtle">
           {/* Emergency Type Filters */}
           <div>
-            <div className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">
+            <div className="text-xs font-semibold text-text-secondary mb-2 uppercase tracking-wide">
               Emergency Type
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -105,17 +105,17 @@ export function FilterPanel({
                   <button
                     key={scenario.key}
                     onClick={() => onToggleScenario(scenario.key)}
-                    className={`px-3 py-2 rounded-lg border-2 text-xs font-semibold transition-all duration-200 flex items-center justify-between ${
+                    className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-all duration-200 flex items-center justify-between ${
                       isSelected
-                        ? scenario.bgClass
-                        : "bg-white border-gray-200 hover:border-gray-300"
+                        ? "bg-surface-elevated border-status-active text-text-primary"
+                        : "bg-bg-tertiary border-border-subtle hover:border-border-default text-text-secondary"
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
                       <span>{scenario.icon}</span>
-                      <span className="text-gray-700">{scenario.label}</span>
+                      <span>{scenario.label}</span>
                     </div>
-                    <span className="text-gray-500 text-xs">({count})</span>
+                    <span className="text-text-muted text-xs">({count})</span>
                   </button>
                 );
               })}
@@ -124,7 +124,7 @@ export function FilterPanel({
 
           {/* Incident ID Filters */}
           <div>
-            <div className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">
+            <div className="text-xs font-semibold text-text-secondary mb-2 uppercase tracking-wide">
               Incident ID
             </div>
             <div className="space-y-1.5">
@@ -136,14 +136,14 @@ export function FilterPanel({
                   <button
                     key={incidentId}
                     onClick={() => onToggleIncident(incidentId)}
-                    className={`w-full px-3 py-2 rounded-lg border-2 text-xs font-semibold transition-all duration-200 flex items-center justify-between ${
+                    className={`w-full px-3 py-2 rounded-lg border text-xs font-semibold transition-all duration-200 flex items-center justify-between ${
                       isSelected
-                        ? "bg-purple-100 border-purple-400"
-                        : "bg-white border-gray-200 hover:border-gray-300"
+                        ? "bg-surface-elevated border-status-active text-text-primary"
+                        : "bg-bg-tertiary border-border-subtle hover:border-border-default text-text-secondary"
                     }`}
                   >
-                    <span className="font-mono text-gray-700">{incidentId}</span>
-                    <span className="text-gray-500">({count} caller{count !== 1 ? "s" : ""})</span>
+                    <span className="font-mono">{incidentId}</span>
+                    <span className="text-text-muted">({count} caller{count !== 1 ? "s" : ""})</span>
                   </button>
                 );
               })}
@@ -152,10 +152,10 @@ export function FilterPanel({
 
           {/* Filter Results Summary */}
           {hasActiveFilters && (
-            <div className="pt-3 border-t border-gray-200">
-              <div className="text-xs text-gray-600 text-center">
-                Showing <span className="font-bold text-blue-600">{filteredCallers.length}</span> of{" "}
-                <span className="font-bold">{allCallers.length}</span> caller{allCallers.length !== 1 ? "s" : ""}
+            <div className="pt-3 border-t border-border-subtle">
+              <div className="text-xs text-text-secondary text-center">
+                Showing <span className="font-bold text-status-active">{filteredCallers.length}</span> of{" "}
+                <span className="font-bold text-text-primary">{allCallers.length}</span> caller{allCallers.length !== 1 ? "s" : ""}
               </div>
             </div>
           )}
