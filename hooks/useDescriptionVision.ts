@@ -26,15 +26,15 @@ export function useDescriptionVision() {
           const parsed = JSON.parse(result.result);
           console.log('Description vision parsed:', parsed);
 
-          const URL = `${process.env.NEXT_PUBLIC_API_URL}/api/description-vision`;
-          fetch(URL, {
-            method: 'POST',
-            body: JSON.stringify(parsed),
-          }).then(response => response.json()).then(data => {
-            console.log('Description vision response:', data);
-          }).catch(error => {
-            console.error('Failed to send description vision result:', error);
-          });
+          // const URL = `${process.env.NEXT_PUBLIC_API_URL}/api/description-vision`;
+          // fetch(URL, {
+          //   method: 'POST',
+          //   body: JSON.stringify(parsed),
+          // }).then(response => response.json()).then(data => {
+          //   console.log('Description vision response:', data);
+          // }).catch(error => {
+          //   console.error('Failed to send description vision result:', error);
+          // });
         } catch (e) {
           console.error('Failed to parse vision result:', e);
         }

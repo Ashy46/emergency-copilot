@@ -2,12 +2,21 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useDescriptionVision } from '@/hooks/useDescriptionVision'
+import { LiveKitRoom, useTracks, useLocalParticipant } from '@livekit/components-react'
+import { LocalVideoTrack, Track, Room, createLocalVideoTrack } from 'livekit-client'
 
 export default function TestPage() {
   const [videoFile, setVideoFile] = useState<File | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+
+  // LiveKit state
+  const [roomName, setRoomName] = useState('video_v1')
+  const [callerId, setCallerId] = useState('caller_c1')
+  const [token, setToken] = useState<string | null>(null)
+  const [url, setUrl] = useState<string | null>(null)
+  const [isConnecting, setIsConnecting] = useState(false)
 
   const { vision, startVision, clearVision } = useDescriptionVision()
 
@@ -43,9 +52,44 @@ export default function TestPage() {
     fileInputRef.current?.click()
   }
 
+  const connectAndStreamVideo = async () => {
+    if (!videoFile) {
+      alert('Please upload a video first')
+      return
+    }
+
+    setIsConnecting(true)
+    try {
+      const response = await fetch('/api/livekit/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomName,
+          identity: callerId,
+          role: 'caller',
+        }),
+      })
+
+      const data = await response.json()
+      setUrl(data.url)
+      setToken(data.token)
+    } catch (err) {
+      console.error('Failed to connect:', err)
+      alert('Failed to connect to LiveKit')
+    } finally {
+      setIsConnecting(false)
+    }
+  }
+
+  const handleDisconnect = () => {
+    setToken(null)
+    setUrl(null)
+  }
+
   const handleClearVideo = () => {
     setVideoFile(null)
     clearVision()
+    handleDisconnect()
     if (videoUrl) {
       URL.revokeObjectURL(videoUrl)
       setVideoUrl(null)
@@ -56,79 +100,210 @@ export default function TestPage() {
   }
 
   return (
-    <div className="flex flex-col items-center gap-8 p-8 min-h-screen bg-[#242424] text-white">
-      <h1 className="text-5xl mb-4 bg-gradient-to-r from-[#646cff] to-[#61dafb] bg-clip-text text-transparent font-semibold">
-        Description Vision Test
-      </h1>
+    <div className="min-h-screen bg-gray-900 p-8">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-3xl font-bold text-white mb-8">Video Stream Test</h1>
 
-      {/* Vision Status Indicator */}
-      <div className={`px-6 py-3 rounded-full text-lg font-semibold ${vision
-        ? 'bg-green-500'
-        : 'bg-gray-600'
-        }`}>
-        {vision
-          ? '✅ Vision Active'
-          : '⏸️ Not Active'}
-      </div>
+        {/* Video Upload Section */}
+        <div className="bg-gray-800 p-6 rounded-lg mb-6">
+          <h2 className="text-xl text-white mb-4">1. Upload Video</h2>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleVideoUpload}
+            accept="video/*"
+            className="hidden"
+          />
 
-      {/* Vision Result */}
-      {vision && (
-        <div className="bg-green-500/20 border border-green-500 p-4 rounded-lg text-left w-full max-w-[500px]">
-          <h3 className="text-lg font-bold mb-2 text-green-400">Vision Result</h3>
-          <pre className="text-sm whitespace-pre-wrap">{JSON.stringify(vision, null, 2)}</pre>
+          <button
+            onClick={handleButtonClick}
+            className="w-full px-8 py-4 text-xl font-semibold text-white bg-gradient-to-br from-[#646cff] to-[#747bff] rounded-lg cursor-pointer transition-all duration-300 shadow-[0_4px_15px_rgba(100,108,255,0.3)] hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(100,108,255,0.4)] active:translate-y-0"
+          >
+            📹 Upload Video
+          </button>
+
+          {videoFile && (
+            <div className="mt-4 text-left bg-white/5 p-4 rounded-lg">
+              <p className="my-2 text-[0.95rem] text-gray-300">
+                <strong>File:</strong> {videoFile.name}
+              </p>
+              <p className="my-2 text-[0.95rem] text-gray-300">
+                <strong>Size:</strong> {(videoFile.size / 1024 / 1024).toFixed(2)} MB
+              </p>
+            </div>
+          )}
         </div>
-      )}
 
-      <div className="flex flex-col items-center gap-6 p-8 border-2 border-dashed border-[#646cff] rounded-xl bg-[#646cff]/5 min-w-[400px]">
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleVideoUpload}
-          accept="video/*"
-          className="hidden"
-        />
+        {/* LiveKit Connection Section */}
+        {videoFile && !token && (
+          <div className="bg-gray-800 p-6 rounded-lg mb-6">
+            <h2 className="text-xl text-white mb-4">2. Connect to Room</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Room Name (Video ID)</label>
+                <input
+                  type="text"
+                  value={roomName}
+                  onChange={(e) => setRoomName(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg"
+                  placeholder="video_v1"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Caller ID (Identity)</label>
+                <input
+                  type="text"
+                  value={callerId}
+                  onChange={(e) => setCallerId(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg"
+                  placeholder="caller_c1"
+                />
+              </div>
+              <button
+                onClick={connectAndStreamVideo}
+                disabled={isConnecting}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold disabled:opacity-50"
+              >
+                {isConnecting ? 'Connecting...' : 'Connect & Stream Video'}
+              </button>
+            </div>
+          </div>
+        )}
 
-        <button
-          onClick={handleButtonClick}
-          className="px-8 py-4 text-xl font-semibold text-white bg-gradient-to-br from-[#646cff] to-[#747bff] rounded-lg cursor-pointer transition-all duration-300 shadow-[0_4px_15px_rgba(100,108,255,0.3)] hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(100,108,255,0.4)] active:translate-y-0"
-        >
-          📹 Upload Video to Test
-        </button>
+        {/* Connected State */}
+        {token && url && videoUrl && (
+          <div className="bg-gray-800 p-6 rounded-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl text-white">Streaming as {callerId}</h2>
+              <button
+                onClick={handleClearVideo}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
+              >
+                Disconnect & Clear
+              </button>
+            </div>
+            <LiveKitRoom
+              serverUrl={url}
+              token={token}
+              connect={true}
+              video={false}
+              audio={false}
+              onConnected={() => console.log('Connected to room')}
+              onDisconnected={() => console.log('Disconnected from room')}
+              className="w-full"
+            >
+              <RoomContent callerId={callerId} videoUrl={videoUrl} videoRef={videoRef} />
+            </LiveKitRoom>
+          </div>
+        )}
 
-        {videoFile && (
-          <div className="text-left bg-white/5 p-4 rounded-lg w-full">
-            <p className="my-2 text-[0.95rem]">
-              <strong>File:</strong> {videoFile.name}
-            </p>
-            <p className="my-2 text-[0.95rem]">
-              <strong>Size:</strong> {(videoFile.size / 1024 / 1024).toFixed(2)} MB
-            </p>
-            <p className="my-2 text-[0.95rem]">
-              <strong>Type:</strong> {videoFile.type}
-            </p>
+        {/* Vision Status */}
+        {vision && (
+          <div className="mt-6 bg-green-500/20 border border-green-500 p-4 rounded-lg">
+            <h3 className="text-lg font-bold mb-2 text-green-400">Vision Result</h3>
+            <pre className="text-sm whitespace-pre-wrap text-gray-300">{JSON.stringify(vision, null, 2)}</pre>
           </div>
         )}
       </div>
+    </div>
+  )
+}
 
-      {videoUrl && (
-        <div className="flex flex-col items-center gap-4 w-full max-w-[900px]">
-          <h2 className="mb-2">Video Preview</h2>
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            controls
-            autoPlay
-            muted
-            className="w-full max-w-[800px] rounded-lg"
-          />
-          <button
-            onClick={handleClearVideo}
-            className="px-6 py-3 text-base font-semibold text-white bg-gradient-to-br from-[#ff4444] to-[#ff6666] rounded-lg cursor-pointer transition-all duration-300 shadow-[0_4px_15px_rgba(255,68,68,0.3)] hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(255,68,68,0.4)] active:translate-y-0"
-          >
-            Stop & Clear
-          </button>
+function RoomContent({
+  callerId,
+  videoUrl,
+  videoRef
+}: {
+  callerId: string
+  videoUrl: string
+  videoRef: React.RefObject<HTMLVideoElement | null>
+}) {
+  const { localParticipant } = useLocalParticipant()
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [localTrack, setLocalTrack] = useState<LocalVideoTrack | null>(null)
+
+  useEffect(() => {
+    const publishVideoStream = async () => {
+      if (!videoRef.current || isPublishing) return
+
+      setIsPublishing(true)
+      try {
+        const video = videoRef.current
+
+        // Create a canvas to capture the video
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+
+        // Set canvas size to match video
+        video.addEventListener('loadedmetadata', () => {
+          canvas.width = video.videoWidth
+          canvas.height = video.videoHeight
+        })
+
+        // Get stream from canvas
+        const canvasStream = canvas.captureStream(30) // 30 FPS
+        const videoTrack = canvasStream.getVideoTracks()[0]
+
+        // Continuously draw video to canvas
+        const drawFrame = () => {
+          if (!video.paused && !video.ended && ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+            requestAnimationFrame(drawFrame)
+          }
+        }
+        video.play()
+        drawFrame()
+
+        // Create LiveKit track from the canvas stream
+        const track = new LocalVideoTrack(videoTrack)
+        await localParticipant.publishTrack(track)
+        setLocalTrack(track)
+
+        console.log('Published video file stream to room')
+      } catch (error) {
+        console.error('Failed to publish video stream:', error)
+      }
+    }
+
+    publishVideoStream()
+
+    return () => {
+      if (localTrack) {
+        localParticipant.unpublishTrack(localTrack)
+        localTrack.stop()
+      }
+    }
+  }, [videoUrl, localParticipant])
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-gray-700 p-4 rounded-lg">
+        <div className="text-green-400 font-semibold mb-2">✓ Connected to room</div>
+        <div className="text-gray-300 text-sm space-y-1">
+          <div>Identity: <span className="font-mono text-white">{callerId}</span></div>
+          <div>Publishing: <span className="font-mono text-white">
+            {localTrack ? 'Video Stream ON' : 'Starting...'}
+          </span></div>
         </div>
-      )}
+      </div>
+
+      <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+        <video
+          ref={videoRef}
+          src={videoUrl}
+          controls
+          autoPlay
+          loop
+          muted
+          className="w-full h-full object-contain"
+        />
+      </div>
+
+      <div className="bg-blue-900/30 border border-blue-700 p-4 rounded-lg">
+        <p className="text-blue-200 text-sm">
+          <strong>Now:</strong> Go to the dispatcher page and select an event with this caller ID to see the video stream.
+        </p>
+      </div>
     </div>
   )
 }
