@@ -19,7 +19,11 @@ Rules:
 - NO backticks
 - Use proper JSON syntax with commas between fields`;
 
-export function useDescriptionVision() {
+interface UseDescriptionVisionProps {
+  onSnapshot?: (scenario: string, data: any) => void
+}
+
+export function useDescriptionVision(props?: UseDescriptionVisionProps) {
   const { vision, startVision, clearVision } = useOvershootVision({
     prompt: DESCRIPTION_VISION_PROMPT,
     clipLengthSeconds: 1,
@@ -46,15 +50,10 @@ export function useDescriptionVision() {
           const parsed = JSON.parse(cleanResult);
           console.log('Description vision parsed:', parsed);
 
-          // const URL = `${process.env.NEXT_PUBLIC_API_URL}/api/description-vision`;
-          // fetch(URL, {
-          //   method: 'POST',
-          //   body: JSON.stringify(parsed),
-          // }).then(response => response.json()).then(data => {
-          //   console.log('Description vision response:', data);
-          // }).catch(error => {
-          //   console.error('Failed to send description vision result:', error);
-          // });
+          // Call the snapshot callback if provided
+          if (props?.onSnapshot && parsed.scenario && parsed.data) {
+            props.onSnapshot(parsed.scenario, parsed.data)
+          }
         } catch (e) {
           console.error('Failed to parse vision result:', e);
           console.error('Raw result:', result.result);

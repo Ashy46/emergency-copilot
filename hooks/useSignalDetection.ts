@@ -38,15 +38,25 @@ export function useSignalDetection(config?: SignalDetectionConfig) {
   const [vision, setVision] = useState<RealtimeVision | null>(null)
   const [isDetecting, setIsDetecting] = useState(false)
 
+  // Pure refs - no state, no re-renders
   const lastTriggerRef = useRef<number>(0)
+  const signalCountRef = useRef<number>(0)
+  const thresholdReachedRef = useRef<boolean>(false)
+  const currentVideoFileRef = useRef<File | null>(null)
+  
   const sensitivityThreshold = config?.sensitivityThreshold ?? 0.5
   const cooldownMs = config?.cooldownMs ?? 5000
+  const signalThreshold = config?.signalThreshold ?? 3
+  const onTransition = config?.onTransition
 
   const startDetection = useCallback((videoSource: File) => {
     console.log('Starting signal detection...')
     setIsDetecting(true)
     setShouldStream(false)
     setLastSignal(null)
+    signalCountRef.current = 0
+    thresholdReachedRef.current = false
+    currentVideoFileRef.current = videoSource // Store the video file
 
     const apiKey = process.env.NEXT_PUBLIC_OVERSHOOT_API_KEY ?? ''
 
@@ -56,36 +66,67 @@ export function useSignalDetection(config?: SignalDetectionConfig) {
       prompt: ANOMALY_DETECTION_PROMPT,
       source: { type: 'video', file: videoSource },
       processing: {
-        clip_length_seconds: 0.2,  // Short clips for faster detection
-        delay_seconds: 0.2       // Low delay for real-time response
+        clip_length_seconds: 1.0,  // Short clips for faster detection
+        delay_seconds: 0.5       // Low delay for real-time response
       },
-      onResult: (result) => {
+      onResult: (result: any) => {
         try {
-          const parsed: AnomalyResponse = JSON.parse(result.result)
-          console.log('Signal detection result:', parsed)
+          // Handle the result structure from Overshoot
+          let parsed: AnomalyResponse
+          
+          if (result?.ok && result?.result) {
+            // Clean up markdown if present
+            let cleanResult = result.result.trim()
+            cleanResult = cleanResult.replace(/^```(?:json)?\s*/g, '').replace(/\s*```$/g, '')
+            cleanResult = cleanResult.trim()
+            
+            parsed = JSON.parse(cleanResult)
+          } else if (typeof result === 'string') {
+            parsed = JSON.parse(result)
+          } else {
+            parsed = result
+          }
+          
+          console.log('Signal detection parsed:', parsed)
 
           // Check if anomaly detected with sufficient confidence
           if (parsed.anomalyDetected && parsed.confidence >= sensitivityThreshold) {
             const now = Date.now()
+            
+            // Increment signal count immediately - no cooldown!
+            signalCountRef.current++
+            console.log(`Signal count: ${signalCountRef.current}/${signalThreshold}`)
 
-            // Check cooldown to prevent rapid re-triggers
-            if (now - lastTriggerRef.current >= cooldownMs) {
-              lastTriggerRef.current = now
+            const signalResult: SignalResult = {
+              shouldStream: true,
+              detectedAt: now,
+              anomalyType: parsed.type,
+              confidence: parsed.confidence
+            }
 
-              const signalResult: SignalResult = {
-                shouldStream: true,
-                detectedAt: now,
-                anomalyType: parsed.type,
-                confidence: parsed.confidence
+            console.log('Anomaly detected! Triggering stream:', signalResult)
+            setShouldStream(true)
+            setLastSignal(signalResult)
+            
+            // Check if threshold reached - FIRE IMMEDIATELY
+            if (signalCountRef.current >= signalThreshold && !thresholdReachedRef.current) {
+              thresholdReachedRef.current = true
+              console.log('🚨🚨🚨 THRESHOLD REACHED! Firing transition NOW!')
+              
+              // Fire transition immediately with the video file
+              if (onTransition && currentVideoFileRef.current) {
+                console.log('Calling onTransition with video file...')
+                onTransition(currentVideoFileRef.current).catch(err => {
+                  console.error('Transition failed:', err)
+                })
+              } else {
+                console.error('❌ No transition callback or no video file!')
               }
-
-              console.log('Anomaly detected! Triggering stream:', signalResult)
-              setShouldStream(true)
-              setLastSignal(signalResult)
             }
           }
         } catch (error) {
           console.error('Failed to parse signal detection result:', error)
+          console.error('Raw result was:', result)
         }
       },
       onError: (error: Error) => {
@@ -99,7 +140,7 @@ export function useSignalDetection(config?: SignalDetectionConfig) {
 
     setVision(newVision)
     return newVision
-  }, [sensitivityThreshold, cooldownMs])
+  }, [sensitivityThreshold, cooldownMs, signalThreshold, onTransition])
 
   const stopDetection = useCallback(() => {
     console.log('Stopping signal detection...')

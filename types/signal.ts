@@ -1,6 +1,8 @@
 export interface SignalDetectionConfig {
   sensitivityThreshold?: number;  // 0-1, default 0.5
   cooldownMs?: number;            // Prevent rapid re-triggers, default 5000
+  signalThreshold?: number;       // Number of signals before triggering callback
+  onTransition?: (videoFile: File) => Promise<void>; // Transition callback with video file
 }
 
 export interface SignalResult {
