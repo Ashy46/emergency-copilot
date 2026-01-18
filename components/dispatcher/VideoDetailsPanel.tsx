@@ -116,12 +116,14 @@ export function VideoDetailsPanel({
       {/* Content */}
       {isExpanded && (
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Live Video Stream */}
+          {/* Live Video Stream or Recorded Video */}
           <VideoStreamPanel
             roomName={video.id}
             callerId={video.id}
             timelineEvents={allTimelineEvents}
             videoStartTime={video.startedAt}
+            videoUrl={video.videoUrl}
+            status={video.status}
           />
 
           {/* Current State / AI Summary */}

@@ -45,15 +45,17 @@ export default function DispatcherPage() {
       onConnected: (data: { clientId: string }) => {
         console.log("SSE connected with clientId:", data.clientId);
       },
-      onNewVideo: (data: { videoId: string; incidentId: string; lat: number; lng: number; status: "live" | "ended" | "recorded" }) => {
+      onNewVideo: (data: { videoId: string; incidentId: string; lat: number; lng: number; status: "live" | "ended" | "recorded"; filename?: string }) => {
         console.log("New video:", data);
+        // Auto-construct videoUrl from filename if provided (for replay)
+        const videoUrl = data.filename ? `/videos/${data.filename}` : null;
         // Add the new video to our list
         const newVideo: Video = {
           id: data.videoId,
           incidentId: data.incidentId,
           status: data.status,
           currentState: null,
-          videoUrl: null,
+          videoUrl,
           lat: data.lat,
           lng: data.lng,
           startedAt: new Date().toISOString(),
@@ -61,6 +63,7 @@ export default function DispatcherPage() {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
+        console.log("Created video with videoUrl:", videoUrl);
         setVideos((prev) => {
           // Check if video already exists
           if (prev.find((v) => v.id === data.videoId)) {
@@ -100,14 +103,16 @@ export default function DispatcherPage() {
           )
         );
       },
-      onVideoStatusChanged: (data: { videoId: string; status: "live" | "ended" | "recorded"; videoUrl?: string }) => {
-        console.log("Video status changed:", data.videoId, data.status);
+      onVideoStatusChanged: (data: { videoId: string; status: "live" | "ended" | "recorded"; videoUrl?: string; filename?: string }) => {
+        console.log("Video status changed:", data.videoId, data.status, "videoUrl:", data.videoUrl, "filename:", data.filename);
         setVideos((prev) =>
-          prev.map((v) =>
-            v.id === data.videoId
-              ? { ...v, status: data.status, videoUrl: data.videoUrl || v.videoUrl, updatedAt: new Date().toISOString() }
-              : v
-          )
+          prev.map((v) => {
+            if (v.id !== data.videoId) return v;
+            // Use provided videoUrl, or construct from filename, or keep existing
+            const newVideoUrl = data.videoUrl || (data.filename ? `/videos/${data.filename}` : v.videoUrl);
+            console.log("Updated video:", data.videoId, "status:", data.status, "videoUrl:", newVideoUrl);
+            return { ...v, status: data.status, videoUrl: newVideoUrl, updatedAt: new Date().toISOString() };
+          })
         );
       },
       onSnapshotReceived: (data: { videoId: string }) => {

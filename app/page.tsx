@@ -11,7 +11,9 @@ import { v4 as uuidv4 } from 'uuid'
 export default function Home() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [videoId, setVideoId] = useState<string | null>(null)
+  const [filename, setFilename] = useState<string | null>(null)
   const videoIdRef = useRef<string | null>(null)
+  const filenameRef = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
 
@@ -67,6 +69,7 @@ export default function Home() {
     initialize: initializeWebSocket,
     disconnect: disconnectWebSocket,
     sendSnapshot,
+    sendVideoEnded,
     isConnected: wsConnected,
     isInitialized: wsInitialized,
     incidentId
@@ -116,8 +119,9 @@ export default function Home() {
           videoIdRef.current = activeVideoId
           setVideoId(activeVideoId)
         }
-        const wsResult = await initializeWebSocket(activeVideoId, location.lat, location.lng)
-        console.log('✅ Incident created:', wsResult.incidentId)
+        const activeFilename = filenameRef.current ?? filename ?? undefined
+        const wsResult = await initializeWebSocket(activeVideoId, location.lat, location.lng, activeFilename)
+        console.log('✅ Incident created:', wsResult.incidentId, 'filename:', activeFilename)
 
         // 3. Start description vision - snapshots will be sent via WebSocket
         console.log('3. Starting description vision...')
@@ -171,6 +175,37 @@ export default function Home() {
     }
   }, [vision])
 
+  // Notify backend when video ends and stop all processing
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    const handleVideoEnded = () => {
+      console.log('🎬 Video ended, stopping all processing...')
+
+      // 1. Stop description vision (Overshoot) - this stops timeline events
+      clearVision()
+      console.log('✅ Description vision stopped')
+
+      // 2. Stop signal detection
+      stopDetection()
+      console.log('✅ Signal detection stopped')
+
+      // 3. Notify backend that video ended
+      sendVideoEnded()
+      console.log('✅ Backend notified')
+
+      // 4. Stop streaming
+      setIsStreaming(false)
+      console.log('✅ Streaming stopped')
+    }
+
+    video.addEventListener('ended', handleVideoEnded)
+    return () => {
+      video.removeEventListener('ended', handleVideoEnded)
+    }
+  }, [sendVideoEnded, clearVision, stopDetection])
+
   const connectAndStream = async () => {
     try {
       const activeVideoId = videoIdRef.current ?? videoId ?? uuidv4()
@@ -213,6 +248,10 @@ export default function Home() {
         setLocation(coords)
         console.log(`🎬 Video uploaded: "${file.name}" → Location set to (${coords.lat}, ${coords.lng})`)
 
+        // Store filename for backend to use for replay URL
+        setFilename(file.name)
+        filenameRef.current = file.name
+
         const newVideoId = uuidv4()
         setVideoId(newVideoId)
         videoIdRef.current = newVideoId
@@ -244,7 +283,9 @@ export default function Home() {
     setToken(null)
     setUrl(null)
     setVideoId(null)
+    setFilename(null)
     videoIdRef.current = null
+    filenameRef.current = null
     hasTransitioned.current = false
     wsConnectionPromise.current = null
 
@@ -260,7 +301,7 @@ export default function Home() {
     }
   }
 
-  const statusItems = [
+  const statusItems: { label: string; state: 'ok' | 'warn' | 'down' | 'idle' }[] = [
     {
       label: 'Overshoot SDK',
       state: isDetecting ? 'ok' : 'idle',
@@ -340,29 +381,33 @@ export default function Home() {
 
           <div className="rounded-lg border border-[#2a2f36] bg-black/60 overflow-hidden">
             {videoUrl ? (
-              isStreaming && token && url ? (
-                <LiveKitRoom
-                  serverUrl={url}
-                  token={token}
-                  connect={true}
-                  video={false}
-                  audio={false}
-                  onConnected={() => console.log('Connected to LiveKit room')}
-                  onDisconnected={() => console.log('Disconnected from LiveKit room')}
-                  className="w-full"
-                >
-                  <StreamingContent videoUrl={videoUrl} videoRef={videoRef} />
-                </LiveKitRoom>
-              ) : (
+              <>
+                {/* Single video element - never gets destroyed */}
                 <video
                   ref={videoRef}
                   src={videoUrl}
                   controls
                   autoPlay
                   muted
+                  playsInline
                   className="w-full"
                 />
-              )
+                {/* LiveKit room mounts separately for streaming - doesn't affect video */}
+                {isStreaming && token && url && (
+                  <LiveKitRoom
+                    serverUrl={url}
+                    token={token}
+                    connect={true}
+                    video={false}
+                    audio={false}
+                    onConnected={() => console.log('Connected to LiveKit room')}
+                    onDisconnected={() => console.log('Disconnected from LiveKit room')}
+                    className="hidden"
+                  >
+                    <StreamingPublisher videoRef={videoRef} />
+                  </LiveKitRoom>
+                )}
+              </>
             ) : (
               <button
                 type="button"
@@ -417,19 +462,18 @@ export default function Home() {
   )
 }
 
-function StreamingContent({
-  videoUrl,
+// This component only handles publishing to LiveKit - no video rendering
+function StreamingPublisher({
   videoRef
 }: {
-  videoUrl: string
   videoRef: React.RefObject<HTMLVideoElement | null>
 }) {
   const { localParticipant } = useLocalParticipant()
-  const [localTrack, setLocalTrack] = useState<LocalVideoTrack | null>(null)
 
   useEffect(() => {
     let currentTrack: LocalVideoTrack | null = null
     let isActive = true
+    let pauseHandler: (() => void) | null = null
 
     const publishVideoStream = async () => {
       const video = videoRef.current
@@ -439,11 +483,7 @@ function StreamingContent({
       }
 
       try {
-        // Set video properties first
-        video.muted = true
-        video.playsInline = true
-
-        // Wait for video metadata to load first
+        // Wait for video to be ready
         if (video.readyState < 2) {
           console.log('Waiting for video metadata...')
           await new Promise<void>((resolve) => {
@@ -454,26 +494,6 @@ function StreamingContent({
         if (!isActive) return
 
         console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight)
-
-        // Start video playback - try multiple times if needed
-        let playAttempts = 0
-        while (playAttempts < 3) {
-          try {
-            await video.play()
-            console.log('Video playing')
-            break
-          } catch (playError) {
-            playAttempts++
-            console.error(`Video autoplay attempt ${playAttempts} failed:`, playError)
-            if (playAttempts >= 3) {
-              alert('Video autoplay failed. Please click the video to start it.')
-              return
-            }
-            await new Promise(resolve => setTimeout(resolve, 500))
-          }
-        }
-
-        if (!isActive) return
 
         // Wait for video to be actually playing
         await new Promise<void>((resolve) => {
@@ -503,15 +523,19 @@ function StreamingContent({
 
         console.log('Video track obtained:', videoTrack.getSettings())
 
-        // Ensure video keeps playing
-        const ensurePlaying = () => {
+        // Ensure video keeps playing during streaming (but NOT after it ends)
+        pauseHandler = () => {
+          if (video.ended) {
+            console.log('Video ended, not restarting')
+            return
+          }
           if (video.paused && isActive && currentTrack) {
-            console.log('Video paused, restarting...')
+            console.log('Video paused mid-stream, restarting...')
             video.play().catch(console.error)
           }
         }
 
-        video.addEventListener('pause', ensurePlaying)
+        video.addEventListener('pause', pauseHandler)
 
         // Create LiveKit track from the video stream
         const track = new LocalVideoTrack(videoTrack)
@@ -524,10 +548,7 @@ function StreamingContent({
           simulcast: false
         })
 
-        if (isActive) {
-          setLocalTrack(track)
-          console.log('✓ Published emergency video stream to room')
-        }
+        console.log('✓ Published emergency video stream to room')
       } catch (error) {
         console.error('Failed to publish video stream:', error)
       }
@@ -537,33 +558,21 @@ function StreamingContent({
 
     // Cleanup
     return () => {
-      console.log('Cleaning up video stream')
+      console.log('Cleaning up video stream publisher')
       isActive = false
+
+      const video = videoRef.current
+      if (video && pauseHandler) {
+        video.removeEventListener('pause', pauseHandler)
+      }
 
       if (currentTrack && localParticipant) {
         localParticipant.unpublishTrack(currentTrack).catch(console.error)
         currentTrack.stop()
       }
     }
-  }, [videoUrl, localParticipant, videoRef])
+  }, [localParticipant, videoRef])
 
-  return (
-    <div className="w-full space-y-3">
-      <div className="rounded-lg border border-[#2a2f36] bg-[#1a1e24] px-3 py-2 text-sm text-muted">
-        {localTrack ? 'Streaming to LiveKit room' : 'Establishing stream...'}
-      </div>
-
-      <div className="overflow-hidden rounded-lg border border-[#2a2f36] bg-black/60 -mt-4">
-        <video
-          ref={videoRef}
-          src={videoUrl}
-          controls
-          autoPlay
-          muted
-          playsInline
-          className="w-full"
-        />
-      </div>
-    </div>
-  )
+  // This component doesn't render anything visible - it just publishes the stream
+  return null
 }

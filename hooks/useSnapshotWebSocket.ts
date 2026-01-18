@@ -108,7 +108,8 @@ export function useSnapshotWebSocket({
 
   // Step 2: Send init message to create incident/video (call after anomaly detected)
   // Returns a promise that resolves when initialized with incidentId
-  const initialize = useCallback((videoId: string, lat: number, lng: number): Promise<{ incidentId: string }> => {
+  // filename is used by backend to set videoUrl for replay (e.g., "/videos/pov1.mov")
+  const initialize = useCallback((videoId: string, lat: number, lng: number, filename?: string): Promise<{ incidentId: string }> => {
     return new Promise((resolve, reject) => {
       if (!wsRef.current || !isConnectedRef.current) {
         reject(new Error('WebSocket not connected - call connect() first'))
@@ -118,7 +119,7 @@ export function useSnapshotWebSocket({
       initResolveRef.current = resolve
       initRejectRef.current = reject
 
-      const initMessage = { type: 'init', videoId, lat, lng }
+      const initMessage = { type: 'init', videoId, lat, lng, filename }
       console.log('📤 Sending init (creating incident/video):', initMessage)
       wsRef.current.send(JSON.stringify(initMessage))
     })
@@ -144,6 +145,22 @@ export function useSnapshotWebSocket({
     wsRef.current.send(JSON.stringify(snapshotMessage))
   }, []) // No dependencies - uses refs
 
+  // Notify backend that video has ended (for replay functionality)
+  const sendVideoEnded = useCallback(() => {
+    if (!wsRef.current || !isInitializedRef.current) {
+      console.warn('Cannot send videoEnded: WebSocket not initialized')
+      return
+    }
+
+    const endMessage = {
+      type: 'videoEnded',
+      timestamp: new Date().toISOString()
+    }
+
+    console.log('📤 Sending videoEnded:', endMessage)
+    wsRef.current.send(JSON.stringify(endMessage))
+  }, [])
+
   const disconnect = useCallback(() => {
     if (wsRef.current) {
       console.log('📡 Closing WebSocket connection...')
@@ -157,6 +174,7 @@ export function useSnapshotWebSocket({
     initialize,
     disconnect,
     sendSnapshot,
+    sendVideoEnded,
     isConnected,
     isInitialized,
     incidentId

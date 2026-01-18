@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   LiveKitRoom,
   VideoTrack,
@@ -15,6 +15,8 @@ interface VideoStreamPanelProps {
   callerId: string;   // Participant identity to subscribe to
   timelineEvents?: TimelineEvent[];  // Timeline events to display on scrubber
   videoStartTime?: string;  // ISO timestamp when video started
+  videoUrl?: string | null;  // URL for recorded video playback
+  status?: 'live' | 'ended' | 'recorded';  // Video status
 }
 
 type ConnectionState = "disconnected" | "connecting" | "connected" | "error";
@@ -59,11 +61,13 @@ function TimelineScrubber({
   videoStartTime,
   onEventClick,
   selectedEventId,
+  isRecorded = false,
 }: {
   events: TimelineEvent[];
   videoStartTime: string;
   onEventClick?: (event: TimelineEvent) => void;
   selectedEventId?: string;
+  isRecorded?: boolean;
 }) {
   const startTime = new Date(videoStartTime).getTime();
   const now = Date.now();
@@ -142,8 +146,12 @@ function TimelineScrubber({
 
       {/* Scrubber bar */}
       <div className="relative h-2 bg-gray-700/50 rounded-full overflow-visible my-2">
-        {/* Progress fill (live indicator) */}
-        <div className="absolute inset-y-0 left-0 right-0 bg-gradient-to-r from-gray-600 to-red-600/30 rounded-full" />
+        {/* Progress fill */}
+        <div className={`absolute inset-y-0 left-0 right-0 rounded-full ${
+          isRecorded
+            ? "bg-gradient-to-r from-gray-600 to-green-600/30"
+            : "bg-gradient-to-r from-gray-600 to-red-600/30"
+        }`} />
 
         {/* Event markers */}
         {eventPositions.map(({ event, position }) => (
@@ -174,14 +182,21 @@ function TimelineScrubber({
         ))}
       </div>
 
-      {/* Time labels and live indicator */}
+      {/* Time labels and status indicator */}
       <div className="flex justify-between items-center text-xs text-gray-500 px-1">
         <span>{formatTime(videoStartTime)}</span>
         <span className="text-gray-400">{formatDuration(totalDuration)}</span>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-          <span className="text-xs font-semibold text-red-400">LIVE</span>
-        </div>
+        {isRecorded ? (
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 bg-green-500 rounded-full" />
+            <span className="text-xs font-semibold text-green-400">RECORDED</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+            <span className="text-xs font-semibold text-red-400">LIVE</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -202,6 +217,120 @@ function ConnectionStatus({ state }: { state: ConnectionState }) {
     <div className="flex items-center gap-1.5">
       <div className={`w-2 h-2 rounded-full ${config.color}`} />
       <span className="text-xs text-gray-400">{config.text}</span>
+    </div>
+  );
+}
+
+// Recorded Video Modal - expanded view with timeline scrubber
+function RecordedVideoModal({
+  videoUrl,
+  timelineEvents,
+  videoStartTime,
+  onClose,
+}: {
+  videoUrl: string;
+  timelineEvents?: TimelineEvent[];
+  videoStartTime?: string;
+  onClose: () => void;
+}) {
+  const [selectedEventId, setSelectedEventId] = useState<string | undefined>();
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleEventClick = (event: TimelineEvent) => {
+    setSelectedEventId(event.id);
+
+    // Seek video to the event timestamp
+    if (videoRef.current && videoStartTime) {
+      const startTime = new Date(videoStartTime).getTime();
+      const eventTime = new Date(event.timestamp).getTime();
+      const seekTime = (eventTime - startTime) / 1000; // Convert to seconds
+
+      if (seekTime >= 0 && seekTime <= videoRef.current.duration) {
+        videoRef.current.currentTime = seekTime;
+        videoRef.current.play().catch(console.error);
+      }
+    }
+
+    console.log("Event clicked, seeking to:", event);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-[85vw] max-w-5xl h-auto max-h-[calc(100vh-48px)] bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-2xl flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-700 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <span className="text-lg font-semibold text-white">Video Recording</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 bg-green-500 rounded-full" />
+              <span className="text-xs text-gray-400">Recorded</span>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+            title="Close"
+          >
+            <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Video Area */}
+        <div className="p-4 flex-1 min-h-0">
+          <div className="relative w-full h-full max-h-[60vh] bg-black rounded-lg overflow-hidden mx-auto aspect-video">
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              controls
+              className="w-full h-full object-contain"
+            >
+              <track kind="captions" />
+            </video>
+          </div>
+        </div>
+
+        {/* Timeline Scrubber & Controls - fixed at bottom */}
+        <div className="p-4 border-t border-gray-700 bg-gray-800/50 space-y-4 flex-shrink-0">
+          {/* Timeline Events Scrubber */}
+          {timelineEvents && timelineEvents.length > 0 && videoStartTime ? (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                  Timeline Events ({timelineEvents.length})
+                </span>
+                <span className="text-xs text-gray-500 ml-2">
+                  Click an event to jump to that moment
+                </span>
+              </div>
+              <TimelineScrubber
+                events={timelineEvents}
+                videoStartTime={videoStartTime}
+                onEventClick={handleEventClick}
+                selectedEventId={selectedEventId}
+                isRecorded={true}
+              />
+            </div>
+          ) : (
+            <div className="text-center py-2 text-gray-500 text-sm">
+              No timeline events
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -313,12 +442,50 @@ function RoomContent({
   );
 }
 
-export function VideoStreamPanel({ roomName, callerId, timelineEvents, videoStartTime }: VideoStreamPanelProps) {
+export function VideoStreamPanel({ roomName, callerId, timelineEvents, videoStartTime, videoUrl, status = 'live' }: VideoStreamPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
   const [liveKitUrl, setLiveKitUrl] = useState<string | null>(null);
   const [liveKitToken, setLiveKitToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // For ended videos without videoUrl, try hardcoded fallback paths
+  const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
+
+  // Try to find a working video URL when status is ended but no videoUrl
+  useEffect(() => {
+    if ((status === 'ended' || status === 'recorded') && !videoUrl) {
+      // Try common video filenames as fallback
+      const tryUrls = ['/videos/pov1.mov', '/videos/pov2.mov', '/videos/pov1.mp4', '/videos/pov2.mp4'];
+
+      const tryNextUrl = async (urls: string[]) => {
+        for (const url of urls) {
+          try {
+            const response = await fetch(url, { method: 'HEAD' });
+            if (response.ok) {
+              console.log('Found fallback video:', url);
+              setFallbackUrl(url);
+              return;
+            }
+          } catch {
+            // Continue to next URL
+          }
+        }
+        console.log('No fallback video found');
+      };
+
+      tryNextUrl(tryUrls);
+    }
+  }, [status, videoUrl]);
+
+  // Use videoUrl if available, otherwise use fallback
+  const effectiveVideoUrl = videoUrl || fallbackUrl;
+
+  // Check if this is a recorded video (allow both "recorded" and "ended" status)
+  const isRecorded = (status === 'recorded' || status === 'ended') && effectiveVideoUrl;
+
+  // Debug logging
+  console.log('VideoStreamPanel:', { status, videoUrl, fallbackUrl, effectiveVideoUrl, isRecorded });
 
   // Fetch LiveKit token
   const fetchToken = useCallback(async () => {
@@ -370,53 +537,100 @@ export function VideoStreamPanel({ roomName, callerId, timelineEvents, videoStar
     <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-4 rounded-lg border border-gray-700 shadow-sm">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
-        <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className={`w-4 h-4 ${isRecorded ? 'text-green-500' : 'text-red-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
         </svg>
         <div className="text-xs font-semibold text-gray-300 uppercase tracking-wide">
-          Live Video Feed
+          {isRecorded ? 'Video Feed (Recorded)' : 'Live Video Feed'}
         </div>
-        <div className="ml-auto">
-          <ConnectionStatus state={connectionState} />
+        <div className="ml-auto flex items-center gap-1.5">
+          {isRecorded ? (
+            <>
+              <div className="w-2 h-2 bg-green-500 rounded-full" />
+              <span className="text-xs text-gray-400">Recording</span>
+            </>
+          ) : (
+            <ConnectionStatus state={connectionState} />
+          )}
         </div>
       </div>
 
-      {/* Single LiveKitRoom - Always mounted */}
-      {liveKitUrl && liveKitToken ? (
-        <LiveKitRoom
-          serverUrl={liveKitUrl}
-          token={liveKitToken}
-          connect={true}
-          onConnected={handleConnected}
-          onDisconnected={handleDisconnected}
-          onError={handleError}
-        >
-          <div onClick={() => !isExpanded && setIsExpanded(true)} className={!isExpanded ? "cursor-pointer" : ""}>
-            <RoomContent
-              callerId={callerId}
-              isExpanded={isExpanded}
-              onToggleExpanded={() => setIsExpanded(!isExpanded)}
-              connectionState={connectionState}
-              fetchToken={fetchToken}
-              roomName={roomName}
+      {/* Recorded Video Player - same style as live feed with expanded popup */}
+      {isRecorded ? (
+        <>
+          {/* Expanded Modal for Recorded Video */}
+          {isExpanded && (
+            <RecordedVideoModal
+              videoUrl={effectiveVideoUrl!}
               timelineEvents={timelineEvents}
               videoStartTime={videoStartTime}
+              onClose={() => setIsExpanded(false)}
             />
+          )}
+
+          {/* Small view */}
+          <div
+            className="relative aspect-video bg-black rounded-lg overflow-hidden cursor-pointer"
+            onClick={() => setIsExpanded(true)}
+          >
+            <video
+              src={effectiveVideoUrl!}
+              controls
+              preload="metadata"
+              className="w-full h-full object-contain"
+            >
+              <track kind="captions" />
+            </video>
+            {/* Click to expand overlay */}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/30 transition-colors group">
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 rounded-full p-3">
+                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+              </div>
+            </div>
           </div>
-        </LiveKitRoom>
+        </>
       ) : (
-        <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500">
-            <svg className="w-16 h-16 mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            <span className="text-sm text-gray-400">
-              {connectionState === "connecting" ? "Connecting to room..." :
-               connectionState === "error" ? error : "Waiting for video stream..."}
-            </span>
-            <span className="text-xs text-gray-600 mt-1 font-mono">Room: {roomName}</span>
-          </div>
-        </div>
+        <>
+          {/* Single LiveKitRoom - Always mounted */}
+          {liveKitUrl && liveKitToken ? (
+            <LiveKitRoom
+              serverUrl={liveKitUrl}
+              token={liveKitToken}
+              connect={true}
+              onConnected={handleConnected}
+              onDisconnected={handleDisconnected}
+              onError={handleError}
+            >
+              <div onClick={() => !isExpanded && setIsExpanded(true)} className={!isExpanded ? "cursor-pointer" : ""}>
+                <RoomContent
+                  callerId={callerId}
+                  isExpanded={isExpanded}
+                  onToggleExpanded={() => setIsExpanded(!isExpanded)}
+                  connectionState={connectionState}
+                  fetchToken={fetchToken}
+                  roomName={roomName}
+                  timelineEvents={timelineEvents}
+                  videoStartTime={videoStartTime}
+                />
+              </div>
+            </LiveKitRoom>
+          ) : (
+            <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500">
+                <svg className="w-16 h-16 mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <span className="text-sm text-gray-400">
+                  {connectionState === "connecting" ? "Connecting to room..." :
+                   connectionState === "error" ? error : "Waiting for video stream..."}
+                </span>
+                <span className="text-xs text-gray-600 mt-1 font-mono">Room: {roomName}</span>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Video Controls (only shown when not expanded) */}
