@@ -2,10 +2,28 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { RealtimeVision } from '@overshoot/sdk'
+import { v4 as uuidv4 } from 'uuid'
 
-export function useOvershootVision() {
+import { useLocation } from './useLocation'
+
+interface UseOvershootVisionProps {
+  prompt: string;
+  clipLengthSeconds: number;
+  delaySeconds: number;
+  onResult: (event: unknown) => void;
+  onError: (error: Error) => void;
+}
+
+export function useOvershootVision({
+  prompt,
+  clipLengthSeconds,
+  delaySeconds,
+  onResult,
+  onError
+}: UseOvershootVisionProps) {
   const [message, setMessage] = useState<string | null>(null)
   const [vision, setVision] = useState<RealtimeVision | null>(null)
+  const { location } = useLocation()
   
   const startVision = useCallback((videoFile: File) => {
     console.log('Starting vision for:', videoFile.name)
@@ -15,15 +33,14 @@ export function useOvershootVision() {
     const newVision = new RealtimeVision({
       apiUrl: 'https://cluster1.overshoot.ai/api/v0.2',
       apiKey: apiKey,
-      prompt: 'Describe what you see',
+      prompt: prompt ?? prompt,
       source: { type: 'video', file: videoFile },
-      onResult: (result) => {
-        console.log('Vision result:', result)
-        setMessage(result.result)
+      processing: {
+        clip_length_seconds: clipLengthSeconds,
+        delay_seconds: delaySeconds
       },
-      onError: (error: any) => {
-        console.error('Vision error:', error)
-      }
+      onResult: (result) => onResult(result),
+      onError: onError
     })
     
     console.log('Vision instance created')
@@ -35,7 +52,7 @@ export function useOvershootVision() {
     
     setVision(newVision)
     return newVision
-  }, [])
+  }, [location, prompt, clipLengthSeconds, delaySeconds, onResult, onError])
   
   const clearVision = useCallback(() => {
     setVision(null)
