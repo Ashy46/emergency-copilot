@@ -1,33 +1,78 @@
 @import "tailwindcss";
 
 :root {
-  --background: #242424;
-  --foreground: rgba(255, 255, 255, 0.87);
+  --bg: #0b0d10;
+  --bg-subtle: #0f1115;
+  --panel: #15181d;
+  --panel-strong: #1a1e24;
+  --border: #2a2f36;
+  --text-primary: #e5e7eb;
+  --text-secondary: #9ca3af;
+  --text-disabled: #6b7280;
+  --accent-blue: #5b8cff;
+  --accent-cyan: #4dd0e1;
+  --accent-magenta: #e879f9;
+  --accent-red: #f87171;
+  --radius: 12px;
+  --glow-soft: 0 0 0 1px rgba(77, 208, 225, 0.08), 0 20px 60px rgba(0, 0, 0, 0.35);
+  --font-sans: var(--font-ibm-sans);
+  --font-mono: var(--font-ibm-mono);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    --background: #ffffff;
-    --foreground: #213547;
-  }
+  --color-background: var(--bg);
+  --color-foreground: var(--text-primary);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(91, 140, 255, 0.08), transparent 35%),
+    radial-gradient(circle at 80% 0%, rgba(232, 121, 249, 0.07), transparent 32%),
+    linear-gradient(145deg, var(--bg) 0%, var(--bg-subtle) 40%, var(--bg) 100%);
+  color: var(--text-primary);
+  font-family: var(--font-sans), "Inter", "SF Pro Display", system-ui, -apple-system, sans-serif;
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
   min-height: 100vh;
+  letter-spacing: -0.01em;
+  background-attachment: fixed;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: rgba(91, 140, 255, 0.25);
+  color: var(--text-primary);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--glow-soft);
+}
+
+.panel-strong {
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--glow-soft);
+}
+
+.text-muted {
+  color: var(--text-secondary);
+}
+
+.text-disabled {
+  color: var(--text-disabled);
+}
+
+.mono {
+  font-family: var(--font-mono), "IBM Plex Mono", "JetBrains Mono", monospace;
+  letter-spacing: -0.02em;
 }
 
 @keyframes fadeIn {

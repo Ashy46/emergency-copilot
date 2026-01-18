@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSignalDetection } from '@/hooks/useSignalDetection'
 import { useDescriptionVision } from '@/hooks/useDescriptionVision'
 import { useSnapshotWebSocket } from '@/hooks/useSnapshotWebSocket'
@@ -9,13 +9,11 @@ import { LocalVideoTrack, Track } from 'livekit-client'
 import { v4 as uuidv4 } from 'uuid'
 
 export default function Home() {
-  const [videoFile, setVideoFile] = useState<File | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [videoId, setVideoId] = useState<string | null>(null)
+  const videoIdRef = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
-
-  // Generate video ID once (stable across renders)
-  const videoId = useMemo(() => uuidv4(), [])
 
   // LiveKit state
   const [isStreaming, setIsStreaming] = useState(false)
@@ -80,7 +78,12 @@ export default function Home() {
 
         // 2. NOW create the incident/video (only after anomaly detected)
         console.log('2. Creating incident/video entry...')
-        const wsResult = await initializeWebSocket(videoId, location.lat, location.lng)
+        const activeVideoId = videoIdRef.current ?? videoId ?? uuidv4()
+        if (!videoIdRef.current) {
+          videoIdRef.current = activeVideoId
+          setVideoId(activeVideoId)
+        }
+        const wsResult = await initializeWebSocket(activeVideoId, location.lat, location.lng)
         console.log('✅ Incident created:', wsResult.incidentId)
 
         // 3. Start description vision - snapshots will be sent via WebSocket
@@ -107,6 +110,25 @@ export default function Home() {
     }
   })
 
+  const connectWebSocketWithRetry = useCallback(async () => {
+    const maxAttempts = 3
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        console.log(`📡 WS connect attempt ${attempt}/${maxAttempts}`)
+        await connectWebSocket()
+        console.log('✅ WS connected (preempted)')
+        return
+      } catch (err) {
+        console.error(`❌ WS connect attempt ${attempt} failed:`, err)
+        if (attempt === maxAttempts) {
+          throw err
+        }
+        const delayMs = 500 * attempt
+        await new Promise((resolve) => setTimeout(resolve, delayMs))
+      }
+    }
+  }, [connectWebSocket])
+
   // Log description vision status
   useEffect(() => {
     if (vision) {
@@ -118,13 +140,18 @@ export default function Home() {
 
   const connectAndStream = async () => {
     try {
+      const activeVideoId = videoIdRef.current ?? videoId ?? uuidv4()
+      if (!videoIdRef.current) {
+        videoIdRef.current = activeVideoId
+        setVideoId(activeVideoId)
+      }
       // Use videoId as both room name and identity
       const response = await fetch('/api/livekit/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          roomName: videoId,
-          identity: videoId,
+          roomName: activeVideoId,
+          identity: activeVideoId,
           role: 'caller',
         }),
       })
@@ -134,7 +161,7 @@ export default function Home() {
       setToken(data.token)
       setIsStreaming(true)
 
-      console.log('✓ Connected to LiveKit room:', videoId)
+      console.log('✓ Connected to LiveKit room:', activeVideoId)
     } catch (err) {
       console.error('Failed to connect to LiveKit:', err)
       alert('Failed to start streaming')
@@ -148,13 +175,15 @@ export default function Home() {
         // Add 300ms delay for smooth UX
         await new Promise(resolve => setTimeout(resolve, 300))
 
-        setVideoFile(file)
+        const newVideoId = uuidv4()
+        setVideoId(newVideoId)
+        videoIdRef.current = newVideoId
         const url = URL.createObjectURL(file)
         setVideoUrl(url)
         
         // Preempt WebSocket connection (just establish connection, don't create incident yet)
         console.log('📡 Preempting WebSocket connection (parallel with signal detection)...')
-        wsConnectionPromise.current = connectWebSocket()
+        wsConnectionPromise.current = connectWebSocketWithRetry()
         
         // Start signal detection
         startDetection(file)
@@ -169,7 +198,6 @@ export default function Home() {
   }
 
   const handleClearVideo = () => {
-    setVideoFile(null)
     stopDetection()
     resetSignal()
     clearVision()
@@ -177,6 +205,8 @@ export default function Home() {
     setIsStreaming(false)
     setToken(null)
     setUrl(null)
+    setVideoId(null)
+    videoIdRef.current = null
     hasTransitioned.current = false
     wsConnectionPromise.current = null
 
@@ -189,145 +219,152 @@ export default function Home() {
     }
   }
 
+  const statusItems = [
+    {
+      label: 'Overshoot SDK',
+      state: isDetecting ? 'ok' : 'idle',
+    },
+    {
+      label: 'WebSocket',
+      state: wsConnected && wsInitialized ? 'ok' : wsConnected ? 'warn' : 'down',
+    },
+    {
+      label: 'LiveKit Stream',
+      state: isStreaming ? 'ok' : shouldStream ? 'warn' : 'idle',
+    },
+  ]
+
+  const toneMap: Record<
+    'ok' | 'warn' | 'down' | 'idle',
+    string
+  > = {
+    ok: 'bg-[#16a34a]',
+    warn: 'bg-[#f7b84a]',
+    down: 'bg-[#f87171]',
+    idle: 'bg-[#6b7280]',
+  }
+
   return (
-    <div className="flex flex-col items-center gap-8 p-8 min-h-screen bg-[#242424] text-white">
-      <h1 className="text-5xl mb-4 bg-gradient-to-r from-[#646cff] to-[#61dafb] bg-clip-text text-transparent font-semibold">
-        Signal Detection Test
-      </h1>
+    <div className="min-h-screen px-6 py-10">
+      <div className="max-w-5xl mx-auto space-y-5">
 
-      {/* Signal Status Indicator */}
-      <div className={`px-6 py-3 rounded-full text-lg font-semibold ${isStreaming
-        ? 'bg-blue-500 animate-pulse'
-        : shouldStream
-          ? 'bg-red-500 animate-pulse'
-          : isDetecting
-            ? 'bg-yellow-500'
-            : 'bg-gray-600'
-        }`}>
-        {isStreaming
-          ? '🔴 LIVE STREAMING TO DISPATCH'
-          : shouldStream
-            ? '🚨 ANOMALY DETECTED - START STREAMING'
-            : isDetecting
-              ? '👁️ Monitoring...'
-              : '⏸️ Not Active'}
-      </div>
+        <div className="panel p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted">Anomaly detection</p>
+              <h2 className="text-xl font-medium tracking-tight">Last event</h2>
 
-      {/* Streaming Info */}
-      {isStreaming && (
-        <div className="bg-blue-500/20 border border-blue-500 p-4 rounded-lg text-left w-full max-w-[500px]">
-          <h3 className="text-lg font-bold mb-2 text-blue-400">🔴 Live Stream Active</h3>
-          <p><strong>Video ID:</strong> <span className="font-mono text-xs">{videoId}</span></p>
-          {incidentId && <p><strong>Incident ID:</strong> <span className="font-mono text-xs">{incidentId}</span></p>}
-
-          <div className="mt-3 space-y-2">
-            <div className={`p-3 rounded ${wsConnected && wsInitialized ? 'bg-green-500/20 border border-green-500' : 'bg-yellow-500/20 border border-yellow-500'}`}>
-              <p className="text-sm">
-                <strong>API Connection:</strong> {wsConnected && wsInitialized ? '✅ Connected & Streaming' : wsConnected ? '⏳ Connecting...' : '❌ Disconnected'}
-              </p>
             </div>
-
-            <div className="p-3 bg-green-500/20 border border-green-500 rounded">
-              <p className="text-sm">
-                <strong>Description Vision:</strong> {vision ? '✅ Active & Analyzing' : '⏳ Initializing...'}
-              </p>
-              {vision && (
-                <p className="text-xs text-green-300 mt-1">
-                  Real-time scene analysis running
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Last Signal Details */}
-      {lastSignal && (
-        <div className="bg-red-500/20 border border-red-500 p-4 rounded-lg text-left w-full max-w-[500px]">
-          <h3 className="text-lg font-bold mb-2 text-red-400">Last Detection</h3>
-          <p><strong>Type:</strong> {lastSignal.anomalyType}</p>
-          <p><strong>Confidence:</strong> {((lastSignal.confidence ?? 0) * 100).toFixed(1)}%</p>
-          <p><strong>Time:</strong> {new Date(lastSignal.detectedAt ?? 0).toLocaleTimeString()}</p>
-          <button
-            onClick={resetSignal}
-            className="mt-3 px-4 py-2 bg-red-500 rounded hover:bg-red-600 transition"
-          >
-            Clear Alert
-          </button>
-        </div>
-      )}
-
-      <div className="flex flex-col items-center gap-6 p-8 border-2 border-dashed border-[#646cff] rounded-xl bg-[#646cff]/5 min-w-[400px]">
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleVideoUpload}
-          accept="video/*"
-          className="hidden"
-        />
-
-        <button
-          onClick={handleButtonClick}
-          className="px-8 py-4 text-xl font-semibold text-white bg-gradient-to-br from-[#646cff] to-[#747bff] rounded-lg cursor-pointer transition-all duration-300 shadow-[0_4px_15px_rgba(100,108,255,0.3)] hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(100,108,255,0.4)] active:translate-y-0"
-        >
-          📹 Upload Video to Test
-        </button>
-
-        {videoFile && (
-          <div className="text-left bg-white/5 p-4 rounded-lg w-full">
-            <p className="my-2 text-[0.95rem]">
-              <strong>File:</strong> {videoFile.name}
-            </p>
-            <p className="my-2 text-[0.95rem]">
-              <strong>Size:</strong> {(videoFile.size / 1024 / 1024).toFixed(2)} MB
-            </p>
-            <p className="my-2 text-[0.95rem]">
-              <strong>Type:</strong> {videoFile.type}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {videoUrl && (
-        <div className="flex flex-col items-center gap-4 w-full max-w-[900px]">
-          <h2 className="mb-2">{isStreaming ? 'Live Stream' : 'Video Preview'}</h2>
-
-          {isStreaming && token && url ? (
-            <LiveKitRoom
-              serverUrl={url}
-              token={token}
-              connect={true}
-              video={false}
-              audio={false}
-              onConnected={() => console.log('Connected to LiveKit room')}
-              onDisconnected={() => console.log('Disconnected from LiveKit room')}
-              className="w-full"
+            <button
+              onClick={resetSignal}
+              className="rounded-md border border-[#2a2f36] bg-[#1a1e24] px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-[#5b8cff]/40 hover:text-white"
             >
-              <StreamingContent videoUrl={videoUrl} videoRef={videoRef} />
-            </LiveKitRoom>
+              Clear
+            </button>
+          </div>
+          {lastSignal ? (
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div className="rounded-lg border border-[#2a2f36] bg-white/5 px-3 py-2">
+                <p className="text-muted">Type</p>
+                <p className="text-white">{lastSignal.anomalyType}</p>
+              </div>
+              <div className="rounded-lg border border-[#2a2f36] bg-white/5 px-3 py-2">
+                <p className="text-muted">Confidence</p>
+                <p className="text-white">
+                  {((lastSignal.confidence ?? 0) * 100).toFixed(1)}%
+                </p>
+              </div>
+              <div className="rounded-lg border border-[#2a2f36] bg-white/5 px-3 py-2">
+                <p className="text-muted">Time</p>
+                <p className="text-white">
+                  {new Date(lastSignal.detectedAt ?? 0).toLocaleTimeString()}
+                </p>
+              </div>
+            </div>
           ) : (
-            <video
-              ref={videoRef}
-              src={videoUrl}
-              controls
-              autoPlay
-              muted
-              className="w-full max-w-[800px] rounded-lg"
-            />
+            <p className="text-sm text-muted">
+              Awaiting detections. Upload a video to arm the scanner.
+            </p>
           )}
-
-          <button
-            onClick={handleClearVideo}
-            className="px-6 py-3 text-base font-semibold text-white bg-gradient-to-br from-[#ff4444] to-[#ff6666] rounded-lg cursor-pointer transition-all duration-300 shadow-[0_4px_15px_rgba(255,68,68,0.3)] hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(255,68,68,0.4)] active:translate-y-0"
-          >
-            Stop & Clear
-          </button>
         </div>
-      )}
 
-      {/* Debug Info */}
-      <div className="text-sm text-gray-500 mt-4">
-        <p>Sensitivity: 0.5 | Cooldown: 3s | Signal Threshold: 3</p>
+        <div className="panel p-3 space-y-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleVideoUpload}
+            accept="video/*"
+            className="hidden"
+          />
+
+          <div className="rounded-lg border border-[#2a2f36] bg-black/60 overflow-hidden">
+            {videoUrl ? (
+              isStreaming && token && url ? (
+                <LiveKitRoom
+                  serverUrl={url}
+                  token={token}
+                  connect={true}
+                  video={false}
+                  audio={false}
+                  onConnected={() => console.log('Connected to LiveKit room')}
+                  onDisconnected={() => console.log('Disconnected from LiveKit room')}
+                  className="w-full"
+                >
+                  <StreamingContent videoUrl={videoUrl} videoRef={videoRef} />
+                </LiveKitRoom>
+              ) : (
+                <video
+                  ref={videoRef}
+                  src={videoUrl}
+                  controls
+                  autoPlay
+                  muted
+                  className="w-full"
+                />
+              )
+            ) : (
+              <button
+                type="button"
+                onClick={handleButtonClick}
+                className="group flex aspect-video min-h-[420px] w-full flex-col items-center justify-center gap-2 text-sm text-muted transition-colors hover:bg-white/5"
+              >
+                <span className="text-lg text-white">↑</span>
+                <span className="text-white">Upload video</span>
+                <span className="text-xs text-muted">MP4 / MOV / WebM</span>
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted/80 leading-tight">
+            <span className="py-1">
+              Video ID: <span className="mono text-white">{videoId ?? 'N/A'}</span>
+            </span>
+            <span>
+              Incident ID:{' '}
+              <span className="mono text-white">
+                {incidentId ?? 'N/A'}
+              </span>
+            </span>
+            {videoUrl && (
+              <button
+                onClick={handleClearVideo}
+                className="ml-auto rounded-md border border-[#2a2f36] bg-[#1a1e24] px-3 py-1 text-[11px] text-muted transition-colors hover:border-[#f87171]/40 hover:text-white"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="text-[11px] text-muted/70 leading-tight">
+          Sensitivity 0.5 · Cooldown 3s · Threshold 3 hits · LiveKit publishes after anomaly transition.
+        </div>
+        <div className="flex flex-wrap items-center gap-6 text-sm text-white">
+          {statusItems.map((item) => (
+            <div key={item.label} className="flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${toneMap[item.state]}`} />
+              <span>{item.label}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -465,23 +502,22 @@ function StreamingContent({
   }, [videoUrl, localParticipant, videoRef])
 
   return (
-    <div className="w-full space-y-4">
-      <div className="bg-green-700 p-3 rounded-lg">
-        <div className="text-white font-semibold text-center">
-          {localTrack ? '🔴 STREAMING LIVE' : '⏳ Connecting...'}
-        </div>
+    <div className="w-full space-y-3">
+      <div className="rounded-lg border border-[#2a2f36] bg-[#1a1e24] px-3 py-2 text-sm text-muted">
+        {localTrack ? 'Streaming to LiveKit room' : 'Establishing stream...'}
       </div>
 
-      <video
-        ref={videoRef}
-        src={videoUrl}
-        controls
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="w-full max-w-[800px] rounded-lg mx-auto"
-      />
+      <div className="overflow-hidden rounded-lg border border-[#2a2f36] bg-black/60 -mt-4">
+        <video
+          ref={videoRef}
+          src={videoUrl}
+          controls
+          autoPlay
+          muted
+          playsInline
+          className="w-full"
+        />
+      </div>
     </div>
   )
 }
