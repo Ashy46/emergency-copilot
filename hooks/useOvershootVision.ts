@@ -55,16 +55,20 @@ export function useOvershootVision({
   }, [location, prompt, clipLengthSeconds, delaySeconds, onResult, onError])
   
   const clearVision = useCallback(() => {
+    if (vision && typeof vision.stop === 'function') {
+      console.log('Stopping vision instance')
+      vision.stop()
+    }
     setVision(null)
     setMessage(null)
-  }, [])
+  }, [vision])
   
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (vision) {
-        // Clean up the vision instance
-        setVision(null)
+      if (vision && typeof vision.stop === 'function') {
+        console.log('Cleaning up vision instance on unmount')
+        vision.stop()
       }
     }
   }, [vision])

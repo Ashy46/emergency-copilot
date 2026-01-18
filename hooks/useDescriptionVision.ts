@@ -18,12 +18,20 @@ export function useDescriptionVision() {
   const { vision, startVision, clearVision } = useOvershootVision({
     prompt: DESCRIPTION_VISION_PROMPT,
     clipLengthSeconds: 1,
-    delaySeconds: 0,
-    onResult: (result) => {
-      console.log('Description vision result:', result);
+    delaySeconds: 0.5,
+    onResult: (result: any) => {
+      if (result?.ok && result?.result) {
+        try {
+          console.log('Description vision result:', result.result);
+          const parsed = JSON.parse(result.result);
+          console.log('Description vision parsed:', parsed);
+        } catch (e) {
+          console.error('Failed to parse vision result:', e);
+        }
+      }
     },
     onError: (error) => {
-      console.error('Description vision error:', error);
+      console.error('Description vision error:', error.message);
     }
   });
 
