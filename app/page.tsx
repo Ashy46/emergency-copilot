@@ -20,7 +20,7 @@ export default function Home() {
   const [token, setToken] = useState<string | null>(null)
   const [url, setUrl] = useState<string | null>(null)
   const hasTransitioned = useRef(false) // Prevent multiple transitions
-  
+
   // Store WebSocket connection promise so onTransition can await it
   // Now just resolves when connection is ready (doesn't create incident yet)
   const wsConnectionPromise = useRef<Promise<void> | null>(null)
@@ -180,11 +180,11 @@ export default function Home() {
         videoIdRef.current = newVideoId
         const url = URL.createObjectURL(file)
         setVideoUrl(url)
-        
+
         // Preempt WebSocket connection (just establish connection, don't create incident yet)
         console.log('📡 Preempting WebSocket connection (parallel with signal detection)...')
         wsConnectionPromise.current = connectWebSocketWithRetry()
-        
+
         // Start signal detection
         startDetection(file)
       } else {
@@ -394,7 +394,6 @@ function StreamingContent({
       try {
         // Set video properties first
         video.muted = true
-        video.loop = true
         video.playsInline = true
 
         // Wait for video metadata to load first
