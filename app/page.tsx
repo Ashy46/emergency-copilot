@@ -25,8 +25,41 @@ export default function Home() {
   // Now just resolves when connection is ready (doesn't create incident yet)
   const wsConnectionPromise = useRef<Promise<void> | null>(null)
 
-  // Mock location for now - in production, get from GPS
-  const [location] = useState({ lat: 41.796483, lng: -87.606919 })
+  // Location based on video filename - dynamically updated
+  const [location, setLocation] = useState({ lat: 41.796483, lng: -87.606919 })
+
+  // Coordinate mapping: Match specific filenames to locations
+  const getLocationFromFilename = (filename: string): { lat: number; lng: number } => {
+    const lowerFilename = filename.toLowerCase()
+
+    // pov1.mov and pov2.mov - same location (close together)
+    if (lowerFilename.includes('pov1')) {
+      console.log('📍 POV1 location: Market Street, SF')
+      return { lat: 37.7749, lng: -122.4194 }
+    }
+    if (lowerFilename.includes('pov2')) {
+      console.log('📍 POV2 location: Near Market Street, SF (slightly offset)')
+      return { lat: 37.7751, lng: -122.4190 } // Very close to pov1
+    }
+
+    // Other specific videos - different locations
+    if (lowerFilename.includes('pov3')) {
+      console.log('📍 POV3 location: SoMa, SF')
+      return { lat: 37.7849, lng: -122.4094 }
+    }
+    if (lowerFilename.includes('pov4')) {
+      console.log('📍 POV4 location: Mission District, SF')
+      return { lat: 37.7649, lng: -122.4294 }
+    }
+    if (lowerFilename.includes('pov5')) {
+      console.log('📍 POV5 location: Financial District, SF')
+      return { lat: 37.7549, lng: -122.3994 }
+    }
+
+    // Default fallback
+    console.log('📍 No specific match, using default location')
+    return { lat: 41.796483, lng: -87.606919 }
+  }
 
   // WebSocket for streaming snapshots to API
   const {
@@ -175,6 +208,11 @@ export default function Home() {
         // Add 300ms delay for smooth UX
         await new Promise(resolve => setTimeout(resolve, 300))
 
+        // Parse filename and set location coordinates
+        const coords = getLocationFromFilename(file.name)
+        setLocation(coords)
+        console.log(`🎬 Video uploaded: "${file.name}" → Location set to (${coords.lat}, ${coords.lng})`)
+
         const newVideoId = uuidv4()
         setVideoId(newVideoId)
         videoIdRef.current = newVideoId
@@ -209,6 +247,9 @@ export default function Home() {
     videoIdRef.current = null
     hasTransitioned.current = false
     wsConnectionPromise.current = null
+
+    // Reset location to default
+    setLocation({ lat: 41.796483, lng: -87.606919 })
 
     if (videoUrl) {
       URL.revokeObjectURL(videoUrl)
@@ -342,6 +383,12 @@ export default function Home() {
               Incident ID:{' '}
               <span className="mono text-white">
                 {incidentId ?? 'N/A'}
+              </span>
+            </span>
+            <span>
+              Location:{' '}
+              <span className="mono text-white">
+                ({location.lat.toFixed(4)}, {location.lng.toFixed(4)})
               </span>
             </span>
             {videoUrl && (

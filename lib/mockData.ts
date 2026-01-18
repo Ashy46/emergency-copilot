@@ -1,5 +1,5 @@
 // Mock data for UI development - set USE_MOCK_DATA to true to enable
-export const USE_MOCK_DATA = true;
+export const USE_MOCK_DATA = false;
 
 import type { Incident, Video, TimelineEvent } from "@/types/api";
 
