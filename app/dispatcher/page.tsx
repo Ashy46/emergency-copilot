@@ -194,29 +194,47 @@ export default function DispatcherPage() {
 
   // Handlers
   const handleSelectIncident = useCallback((id: string) => {
-    setSelectedIncidentId(id);
-    setSelectedVideoId(null);
-    setDetailsExpanded(true);
-  }, []);
+    if (selectedIncidentId === id) {
+      // Clicking the same incident again - close the panel
+      setSelectedIncidentId(null);
+      setDetailsExpanded(false);
+    } else {
+      setSelectedIncidentId(id);
+      setSelectedVideoId(null);
+      setDetailsExpanded(true);
+    }
+  }, [selectedIncidentId]);
 
   const handleSelectVideo = useCallback((video: Video) => {
-    setSelectedVideoId(video.id);
-    setSelectedIncidentId(null);
-    setDetailsExpanded(true);
-  }, []);
+    if (selectedVideoId === video.id) {
+      // Clicking the same video again - close the panel
+      setSelectedVideoId(null);
+      setDetailsExpanded(false);
+    } else {
+      setSelectedVideoId(video.id);
+      setSelectedIncidentId(null);
+      setDetailsExpanded(true);
+    }
+  }, [selectedVideoId]);
 
   const handleMapMarkerSelect = useCallback((id: string, type: "incident" | "video") => {
     if (type === "incident") {
+      // Only change tab if we're opening a new selection (not closing)
+      if (selectedIncidentId !== id) {
+        setActiveTab("incidents");
+      }
       handleSelectIncident(id);
-      setActiveTab("incidents");
     } else {
       const video = videos.find((v) => v.id === id);
       if (video) {
+        // Only change tab if we're opening a new selection (not closing)
+        if (selectedVideoId !== video.id) {
+          setActiveTab("videos");
+        }
         handleSelectVideo(video);
-        setActiveTab("videos");
       }
     }
-  }, [videos, handleSelectIncident, handleSelectVideo]);
+  }, [videos, handleSelectIncident, handleSelectVideo, selectedIncidentId, selectedVideoId]);
 
   const handleCloseDetails = useCallback(() => {
     setDetailsExpanded(false);
@@ -229,16 +247,16 @@ export default function DispatcherPage() {
   // Connection status indicator
   const ConnectionIndicator = ({ state }: { state: SSEConnectionState }) => {
     const config = {
-      connecting: { color: "bg-yellow-500 animate-pulse", text: "Connecting..." },
-      connected: { color: "bg-green-500", text: "Connected" },
-      disconnected: { color: "bg-gray-500", text: "Disconnected" },
-      error: { color: "bg-red-500", text: "Error" },
+      connecting: { color: "bg-[#f7b84a] animate-pulse", text: "Connecting..." },
+      connected: { color: "bg-[#16a34a]", text: "Connected" },
+      disconnected: { color: "bg-[#6b7280]", text: "Disconnected" },
+      error: { color: "bg-[#f87171]", text: "Error" },
     };
     const c = config[state];
     return (
       <div className="flex items-center gap-1.5">
         <div className={`w-2 h-2 rounded-full ${c.color}`} />
-        <span className="text-xs text-gray-500">{c.text}</span>
+        <span className="text-xs text-muted">{c.text}</span>
       </div>
     );
   };
@@ -248,46 +266,46 @@ export default function DispatcherPage() {
   const selectedMarkerType = selectedVideoId ? "video" : selectedIncidentId ? "incident" : null;
 
   return (
-    <main className="h-screen w-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col">
-      <div className="flex-1 flex overflow-hidden relative">
+    <main className="min-h-screen">
+      <div className="flex h-screen overflow-hidden relative">
         {/* Floating Toggle Button (when sidebar is closed) */}
         {!headerExpanded && (
           <button
             type="button"
             onClick={() => setHeaderExpanded(true)}
-            className="absolute top-4 left-4 z-[2000] bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 rounded-lg shadow-2xl hover:from-blue-700 hover:to-blue-800 transition-all hover:scale-110 flex items-center gap-2"
+            className="absolute top-4 left-4 z-[2000] panel-strong p-3 shadow-2xl hover:border-[#5b8cff]/40 transition-all flex items-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
-            <span className="font-semibold text-sm">Dispatch</span>
+            <span className="font-medium text-sm">Dispatch</span>
           </button>
         )}
 
         {/* Left Column: Incident/Video List (Floating Panel) */}
         {headerExpanded && (
-          <div className="absolute top-4 left-4 bottom-4 w-80 bg-white shadow-2xl flex flex-col z-[1500] rounded-xl overflow-hidden transition-all duration-200">
+          <div className="absolute top-4 left-4 bottom-4 w-80 panel shadow-2xl flex flex-col z-[1500] overflow-hidden transition-all duration-200">
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+            <div className="panel-strong border-b border-[#2a2f36]">
               <button
                 type="button"
                 onClick={() => setHeaderExpanded(false)}
-                className="w-full p-4 flex items-center justify-between hover:bg-blue-800 transition-all"
+                className="w-full p-4 flex items-center justify-between transition-all hover:bg-white/5"
               >
                 <div className="flex items-center gap-3">
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
-                  <h1 className="text-xl font-bold">Dispatch Center</h1>
+                  <h1 className="text-xl font-medium tracking-tight">Dispatch Center</h1>
                 </div>
-                <svg className="w-5 h-5 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-5 h-5 rotate-180 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
               <div className="px-6 pb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-                  <p className="text-sm text-blue-100">
+                  <div className="w-2 h-2 rounded-full bg-[#f87171] animate-pulse" />
+                  <p className="text-sm text-muted">
                     {incidents.length} incident{incidents.length !== 1 ? "s" : ""} •{" "}
                     {videos.filter((v) => v.status === "live").length} live
                   </p>
@@ -297,14 +315,13 @@ export default function DispatcherPage() {
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b border-gray-200">
+            <div className="flex border-b border-[#2a2f36]">
               <button
                 onClick={() => setActiveTab("incidents")}
-                className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
-                  activeTab === "incidents"
-                    ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
-                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                }`}
+                className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${activeTab === "incidents"
+                  ? "text-[#5b8cff] border-b-2 border-[#5b8cff] bg-[#5b8cff]/10"
+                  : "text-muted hover:text-white hover:bg-white/5"
+                  }`}
               >
                 <div className="flex items-center justify-center gap-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -315,11 +332,10 @@ export default function DispatcherPage() {
               </button>
               <button
                 onClick={() => setActiveTab("videos")}
-                className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
-                  activeTab === "videos"
-                    ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
-                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                }`}
+                className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${activeTab === "videos"
+                  ? "text-[#5b8cff] border-b-2 border-[#5b8cff] bg-[#5b8cff]/10"
+                  : "text-muted hover:text-white hover:bg-white/5"
+                  }`}
               >
                 <div className="flex items-center justify-center gap-2">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -331,11 +347,11 @@ export default function DispatcherPage() {
             </div>
 
             {/* Action Buttons */}
-            <div className="p-4 space-y-2 bg-gray-50 border-b border-gray-200">
+            <div className="p-4 space-y-2 border-b border-[#2a2f36]">
               <button
                 onClick={recenterMap}
                 disabled={mapMarkers.length === 0}
-                className="w-full bg-white border-2 border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 hover:border-gray-400 disabled:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2"
+                className="w-full bg-[#1a1e24] border border-[#2a2f36] px-4 py-2 rounded-lg hover:border-[#5b8cff]/40 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -349,18 +365,18 @@ export default function DispatcherPage() {
             <div className="flex-1 overflow-y-auto">
               {isLoading ? (
                 <div className="p-8 text-center">
-                  <div className="animate-spin w-8 h-8 border-2 border-gray-300 border-t-blue-600 rounded-full mx-auto" />
-                  <p className="text-gray-500 mt-3">Loading...</p>
+                  <div className="animate-spin w-8 h-8 border-2 border-[#2a2f36] border-t-[#5b8cff] rounded-full mx-auto" />
+                  <p className="text-muted mt-3">Loading...</p>
                 </div>
               ) : error ? (
                 <div className="p-8 text-center">
-                  <svg className="mx-auto h-12 w-12 text-red-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="mx-auto h-12 w-12 text-[#f87171] mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
-                  <p className="text-red-600 font-medium">{error}</p>
+                  <p className="text-[#f87171] font-medium">{error}</p>
                   <button
                     onClick={() => window.location.reload()}
-                    className="mt-3 text-blue-600 hover:text-blue-700 text-sm font-semibold"
+                    className="mt-3 text-[#5b8cff] hover:text-[#4dd0e1] text-sm font-medium"
                   >
                     Retry
                   </button>
@@ -368,11 +384,11 @@ export default function DispatcherPage() {
               ) : activeTab === "incidents" ? (
                 incidents.length === 0 ? (
                   <div className="p-8 text-center">
-                    <svg className="mx-auto h-16 w-16 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="mx-auto h-16 w-16 text-muted mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <p className="text-gray-500 font-medium">No active incidents</p>
-                    <p className="text-gray-400 text-sm mt-1">Incidents will appear here when reported</p>
+                    <p className="text-white font-medium">No active incidents</p>
+                    <p className="text-muted text-sm mt-1">Incidents will appear here when reported</p>
                   </div>
                 ) : (
                   <div className="p-2 space-y-2">
@@ -389,11 +405,11 @@ export default function DispatcherPage() {
                 )
               ) : videos.length === 0 ? (
                 <div className="p-8 text-center">
-                  <svg className="mx-auto h-16 w-16 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="mx-auto h-16 w-16 text-muted mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
-                  <p className="text-gray-500 font-medium">No videos</p>
-                  <p className="text-gray-400 text-sm mt-1">Video streams will appear here</p>
+                  <p className="text-white font-medium">No videos</p>
+                  <p className="text-muted text-sm mt-1">Video streams will appear here</p>
                 </div>
               ) : (
                 <div className="p-2 space-y-2">
@@ -412,7 +428,7 @@ export default function DispatcherPage() {
         )}
 
         {/* Map */}
-        <div className="flex-1 bg-gray-200 relative shadow-inner">
+        <div className="flex-1 relative">
           <DispatcherMapView
             markers={mapMarkers}
             selectedMarkerId={selectedMarkerId}
@@ -423,13 +439,12 @@ export default function DispatcherPage() {
           {/* Map overlay badge */}
           {mapMarkers.length > 0 && (
             <div
-              className={`absolute top-4 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg px-4 py-2 z-[1000] transition-all duration-300 ${
-                headerExpanded ? "left-[336px]" : "left-4"
-              }`}
+              className={`absolute top-4 panel-strong backdrop-blur-sm px-4 py-2 z-[1000] transition-all duration-300 ${headerExpanded ? "left-[336px]" : "left-4"
+                }`}
             >
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-sm font-semibold text-gray-700">
+                <div className="w-2 h-2 bg-[#16a34a] rounded-full animate-pulse" />
+                <span className="text-sm font-medium">
                   {incidents.length} incident{incidents.length !== 1 ? "s" : ""} •{" "}
                   {videos.length} video{videos.length !== 1 ? "s" : ""}
                 </span>
@@ -443,12 +458,12 @@ export default function DispatcherPage() {
           <button
             type="button"
             onClick={() => setDetailsExpanded(true)}
-            className="absolute top-4 right-4 z-[2000] bg-gradient-to-r from-gray-700 to-gray-800 text-white p-3 rounded-lg shadow-2xl hover:from-gray-800 hover:to-gray-900 transition-all hover:scale-110 flex items-center gap-2"
+            className="absolute top-4 right-4 z-[2000] panel-strong p-3 shadow-2xl hover:border-[#5b8cff]/40 transition-all flex items-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="font-semibold text-sm">Details</span>
+            <span className="font-medium text-sm">Details</span>
           </button>
         )}
 
