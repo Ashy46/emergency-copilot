@@ -72,7 +72,7 @@ export default function DispatcherPage() {
     const lngOffset = (Math.random() - 0.5) * 0.02;
 
     const samplePayload: Event = {
-      id: `caller_c${Object.keys(playback.callersById).length + 1}`,
+      id: `caller_c${eventHistory.length + 1}`,
       incidentId: `incident_i${Math.floor(Math.random() * 3) + 1}`,
       videoId: `video_v${Object.keys(playback.callersById).length + 1}`,
       timestamp: Date.now(),
@@ -133,7 +133,7 @@ export default function DispatcherPage() {
 
         {/* Left Column: Caller List (Floating Panel) */}
         {headerExpanded && (
-          <div className="absolute top-0 left-0 bottom-0 w-80 bg-white shadow-2xl flex flex-col z-[1500]">
+          <div className="absolute top-4 left-4 bottom-4 w-80 bg-white shadow-2xl flex flex-col z-[1500] rounded-xl overflow-hidden">
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
               <button
                 type="button"

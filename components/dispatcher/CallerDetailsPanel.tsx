@@ -15,7 +15,7 @@ export function CallerDetailsPanel({ caller, onClose, isExpanded }: CallerDetail
   if (!caller) return null;
 
   return (
-    <div className="absolute top-0 right-0 bottom-0 w-96 bg-white shadow-2xl flex flex-col overflow-hidden z-[1500]">
+    <div className="absolute top-4 right-4 bottom-4 w-96 bg-white shadow-2xl flex flex-col overflow-hidden z-[1500] rounded-xl">
       {/* Collapsible Header */}
       <button
         type="button"
