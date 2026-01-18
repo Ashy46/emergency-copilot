@@ -292,24 +292,24 @@ export default function DispatcherPage() {
             isExpanded={detailsExpanded}
           />
         )}
-      </div>
 
-      {/* Timeline Playback Controls */}
-      <TimelinePlayback
-        eventHistory={eventHistory}
-        isLiveMode={playback.isLiveMode}
-        isPlaying={playback.isPlaying}
-        playbackSpeed={playback.playbackSpeed}
-        currentTime={playback.currentTime}
-        minTime={playback.minTime}
-        maxTime={playback.maxTime}
-        onTogglePlayback={playback.togglePlayback}
-        onGoToLive={playback.goToLive}
-        onSpeedChange={playback.setPlaybackSpeed}
-        onTimeChange={playback.handleTimelineChange}
-        isExpanded={timelineExpanded}
-        onToggleExpand={() => setTimelineExpanded(!timelineExpanded)}
-      />
+        {/* Timeline Playback Controls - Floating */}
+        <TimelinePlayback
+          eventHistory={eventHistory}
+          isLiveMode={playback.isLiveMode}
+          isPlaying={playback.isPlaying}
+          playbackSpeed={playback.playbackSpeed}
+          currentTime={playback.currentTime}
+          minTime={playback.minTime}
+          maxTime={playback.maxTime}
+          onTogglePlayback={playback.togglePlayback}
+          onGoToLive={playback.goToLive}
+          onSpeedChange={playback.setPlaybackSpeed}
+          onTimeChange={playback.handleTimelineChange}
+          isExpanded={timelineExpanded}
+          onToggleExpand={() => setTimelineExpanded(!timelineExpanded)}
+        />
+      </div>
     </main>
   );
 }

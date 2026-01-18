@@ -42,7 +42,7 @@ export function TimelinePlayback({
   }
 
   return (
-    <div className="bg-gradient-to-r from-gray-50 to-white border-t-2 border-gray-300 shadow-2xl">
+    <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-sm border border-gray-200 shadow-2xl z-[1500] rounded-xl overflow-hidden">
       {/* Collapsible Header */}
       <button
         type="button"
