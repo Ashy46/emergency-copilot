@@ -68,8 +68,6 @@ export function useOvershootVision({
 }: UseOvershootVisionProps) {
   const [message, setMessage] = useState<string | null>(null)
   const [vision, setVision] = useState<RealtimeVision | null>(null)
-  const [events, setEvents] = useState<Event[]>([])
-  const [masterEvent, setMasterEvent] = useState<Event | null>(null)
   const { location } = useLocation()
   
   const startVision = useCallback((videoFile: File) => {
